@@ -44,6 +44,6 @@ Dir["#{SPECS}/*.yml"].each do |file|
       COFFEE
     end
 
-    f.puts("suite.run()")
+    f.puts("suite.export(module)")
   end
 end
