@@ -16,16 +16,14 @@ Parse = (template, start = 0, end = template.length) ->
   whitespace = ''
 
   # Build a RegExp to match the start of a new tag.
-  open  = ///(?=[ \t]*#{tagOpen})///g
-  blank = ///(?=#{tagOpen})///g
-  close = ///(?=#{tagClose})///g
+  open  = ///(((\n)[#{' '}\t]*)?#{tagOpen})///g
+  close = ///(#{tagClose})///g
   open.lastIndex = start
 
   # Start walking through the template, searching for opening tags between
   # start and end.
   while open.test(template)
     break if open.lastIndex >= end
-    blank.lastIndex = open.lastIndex
 
     # Append any text content before the tag, save any intervening whitespace,
     # and advance into the tag itself.  We'll also save off information about
@@ -33,11 +31,11 @@ Parse = (template, start = 0, end = template.length) ->
     # processing semantics.
     firstContentOnLine = yes
     if open.lastIndex > 0
-      buffer.push(template[start...open.lastIndex])
-      firstContentOnLine = template[start - 1] == "\n"
-    blank.test(template)
-    whitespace = template[open.lastIndex...blank.lastIndex]
-    start = blank.lastIndex + tagOpen.length
+      buffer.push(RegExp.leftContext)
+      buffer.push(RegExp.$3) if RegExp.$3
+      firstContentOnLine = RegExp.$3 == "\n"
+    whitespace = RegExp.$2
+    start = open.lastIndex
 
     # Build the pattern for finding the end of the tag.  Set Delimiter tags and
     # Triple Mustache tags also have mirrored characters, which need to be
@@ -45,15 +43,15 @@ Parse = (template, start = 0, end = template.length) ->
     offset   = 0
     offset   = 1 if template[start] in ['=', '{']
     endOfTag = switch template[start]
-      when '=' then ///(?=[=]#{tagClose})///g
-      when '{' then ///(?=[}]#{tagClose})///g
+      when '=' then ///([=]#{tagClose})///g
+      when '{' then ///([}]#{tagClose})///g
       else close
     endOfTag.lastIndex = start
 
     # Grab the tag contents, and advance the pointer beyond the end of the tag.
     throw "No end for tag!" unless endOfTag.test(template)
-    tag   = trim(template[start...endOfTag.lastIndex]).split(/\s+|\b/g)
-    start = endOfTag.lastIndex + offset + tagClose.length
+    tag   = trim(RegExp.leftContext[start...]).split(/\s+|\b/g)
+    start = endOfTag.lastIndex
 
     # If the next character in the template is a newline, that implies that
     # this tag was the only content on this line.  Excepting the interpolating
@@ -61,20 +59,22 @@ Parse = (template, start = 0, end = template.length) ->
     # rendered output completely.  If the tag was not "standalone", or it was
     # an interpolation tag, the whitespace we earlier removed should be re-
     # added.
-    if (firstContentOnLine and template[start] == "\n" and tag.length == 1)
+    if (firstContentOnLine && template[start] == "\n" && /[\W{&]/.test(tag[0]))
       start++
     else
       buffer.push(whitespace)
 
     # Handle the tag itself.
-    tag = switch tag[0]
+    switch tag[0]
+      when '!'
+        tag = null
       when '&', '{'
         throw "Wrong number of parts in tag!" unless tag.length == 2
-        [ 'unescaped', tag[1] ]
+        tag[0] = 'unescaped'
       else
         throw "Wrong number of parts in tag!" unless tag.length == 1
-        [ 'escaped', tag[0] ]
-    buffer.push(tag)
+        tag.unshift('escaped')
+    buffer.push(tag) if tag?
 
     # Advance the lastIndex for the open RegExp.
     open.lastIndex = start
