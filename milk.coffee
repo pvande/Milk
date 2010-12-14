@@ -67,7 +67,7 @@ Parse = (template, sectionName, pos = 0) ->
 
       # Partial Tag
       when '>'
-        buffer.push [ 'partial', whitespace, Parse(Partials[trim(tag[1..])]) ]
+        buffer.push [ 'partial', trim(tag[1..]), whitespace ]
 
       # Section Tag
       when '#'
@@ -134,8 +134,9 @@ handle = (part, context) ->
   return part if typeof part is 'string'
   switch part[0]
     when 'partial'
-      [_, indent, partial] = part
-      content = (handle p, context for p in partial).join('')
+      [_, name, indent] = part
+      partial = Parse(Partials[name])
+      content = Generate(partial, {}, context)
       content = content.replace(/^(?=.)/gm, indent) if indent
       return content
     when 'section'
