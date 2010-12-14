@@ -7,7 +7,7 @@ tagOpen = '{{'
 tagClose = '}}'
 
 # Parses the given template between the start and end indexes.
-Parse = (template, pos = 0) ->
+Parse = (template, sectionName, pos = 0) ->
   # If we've got a cached parse tree for this template, return it.
   return TemplateCache[template] if template of TemplateCache
 
@@ -16,7 +16,7 @@ Parse = (template, pos = 0) ->
   whitespace = ''
 
   # Build a RegExp to match the start of a new tag.
-  open  = ///((?:(\n)([#{' '}\t]*))?#{tagOpen})///g
+  open  = ///((?:(^|\n)([#{' '}\t]*))?#{tagOpen})///g
   close = ///(#{tagClose})///g
   open.lastIndex = pos
 
@@ -27,10 +27,10 @@ Parse = (template, pos = 0) ->
     # whether this tag is potentially "standalone", which would change the
     # processing semantics.
     firstContentOnLine = yes
-    if open.lastIndex > 0
+    if RegExp.leftContext[pos..].length > 0
       buffer.push(RegExp.leftContext[pos..])
-      buffer.push(RegExp.$2) if RegExp.$2
       firstContentOnLine = RegExp.$2 == "\n"
+    buffer.push(RegExp.$2) if RegExp.$2
     whitespace = RegExp.$3
     pos = open.lastIndex
 
@@ -47,7 +47,7 @@ Parse = (template, pos = 0) ->
 
     # Grab the tag contents, and advance the pointer beyond the end of the tag.
     throw "No end for tag!" unless endOfTag.test(template)
-    tag   = RegExp.leftContext[pos...]
+    tag = RegExp.leftContext[pos...]
     pos = endOfTag.lastIndex
 
     # If the next character in the template is a newline, that implies that
@@ -59,7 +59,7 @@ Parse = (template, pos = 0) ->
     if (firstContentOnLine && template[pos] == "\n" && /[^\w{&]/.test(tag[0]))
       pos++
     else
-      buffer.push(whitespace)
+      buffer.push(whitespace) if whitespace
 
     switch tag[0]
       # Comment Tag
@@ -68,6 +68,16 @@ Parse = (template, pos = 0) ->
       # Partial Tag
       when '>'
         buffer.push [ 'partial', whitespace, Parse(Partials[trim(tag[1..])])]
+
+      # Section Tag
+      when '#'
+        [section..., pos] = Parse(template, trim(tag[1..]), pos)
+        buffer.push [ 'section', trim(tag[1..]), section  ]
+
+      # End Section Tag
+      when '/'
+        buffer.push(pos)
+        return buffer
 
       # Set Delimiters Tag
       when '='
@@ -87,7 +97,7 @@ Parse = (template, pos = 0) ->
     open.lastIndex = pos
 
   # Append any remaining template to the buffer.
-  buffer.push(template[pos..])
+  buffer.push(template[pos..]) if template[pos..]
 
   # Cache the buffer for future calls.
   TemplateCache[template] = buffer
@@ -108,8 +118,12 @@ find = (name, stack) ->
     return switch typeof value
       when 'undefined' then ''
       when 'function'  then value()
-      else value.toString()
+      else value
   return ''
+
+Generate = (parsed, data, context = []) ->
+  context.push data if data.constructor is Object
+  (handle(part, context) for part in parsed).join('')
 
 handle = (part, context) ->
   return part if typeof part is 'string'
@@ -118,18 +132,27 @@ handle = (part, context) ->
       [_, indent, partial] = part
       content = (handle p, context for p in partial).join('')
       content = content.replace(/^(?=.)/gm, indent) if indent
-      content
-    when 'unescaped' then find(part[1], context)
-    when 'escaped' then escape(find(part[1], context))
+      return content
+    when 'section'
+      [_, name, parsed] = part
+      data = find(name, context)
+      return switch data.constructor
+        when Array
+          (Generate(parsed, datum, [context...]) for datum in data).join('')
+        when Function
+          'f(x)'
+        else
+          if data then Generate(parsed, data, [context...]) else ''
+    when 'unescaped' then find(part[1], context).toString()
+    when 'escaped' then escape(find(part[1], context).toString())
     else throw "Unknown tag type: #{part[0]}"
 
 Milk =
   render: (template, data, partials = {}, context = []) ->
-    [tagOpen, tagClose] = ['{{', '}}'] if context.length is 0
+    [tagOpen, tagClose] = ['{{', '}}']
     Partials = partials
     parsed = Parse template
-    context.push data if data
-    return (handle(part, context) for part in parsed).join('')
+    return Generate(parsed, data)
 
   clearCache: (tmpl...) ->
     TemplateCache = {} unless tmpl.length
