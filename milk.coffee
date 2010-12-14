@@ -67,12 +67,17 @@ Parse = (template, sectionName, pos = 0) ->
 
       # Partial Tag
       when '>'
-        buffer.push [ 'partial', whitespace, Parse(Partials[trim(tag[1..])])]
+        buffer.push [ 'partial', whitespace, Parse(Partials[trim(tag[1..])]) ]
 
       # Section Tag
       when '#'
         [section..., pos] = Parse(template, trim(tag[1..]), pos)
         buffer.push [ 'section', trim(tag[1..]), section  ]
+
+      # Inverted Section Tag
+      when '^'
+        [section..., pos] = Parse(template, trim(tag[1..]), pos)
+        buffer.push [ 'inverted', trim(tag[1..]), section  ]
 
       # End Section Tag
       when '/'
@@ -143,6 +148,14 @@ handle = (part, context) ->
           'f(x)'
         else
           if data then Generate(parsed, data, [context...]) else ''
+    when 'inverted'
+      [_, name, parsed] = part
+      data = find(name, context)
+      return switch data.constructor
+        when Array
+          if data.length == 0 then Generate(parsed, data, [context...]) else ''
+        else
+          if data then '' else Generate(parsed, data, [context...])
     when 'unescaped' then find(part[1], context).toString()
     when 'escaped' then escape(find(part[1], context).toString())
     else throw "Unknown tag type: #{part[0]}"
