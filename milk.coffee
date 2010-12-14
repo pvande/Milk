@@ -1,6 +1,7 @@
 trim = (str) -> str.replace(/^\s*|\s*$/g, '')
 
 TemplateCache = {}
+Partials = {}
 
 tagOpen = '{{'
 tagClose = '}}'
@@ -16,7 +17,7 @@ Parse = (template, start = 0, end = template.length) ->
   whitespace = ''
 
   # Build a RegExp to match the start of a new tag.
-  open  = ///(((\n)[#{' '}\t]*)?#{tagOpen})///g
+  open  = ///((?:(\n)([#{' '}\t]*))?#{tagOpen})///g
   close = ///(#{tagClose})///g
   open.lastIndex = start
 
@@ -31,10 +32,10 @@ Parse = (template, start = 0, end = template.length) ->
     # processing semantics.
     firstContentOnLine = yes
     if open.lastIndex > 0
-      buffer.push(RegExp.leftContext)
-      buffer.push(RegExp.$3) if RegExp.$3
-      firstContentOnLine = RegExp.$3 == "\n"
-    whitespace = RegExp.$2
+      buffer.push(RegExp.leftContext[start..])
+      buffer.push(RegExp.$2) if RegExp.$2
+      firstContentOnLine = RegExp.$2 == "\n"
+    whitespace = RegExp.$3
     start = open.lastIndex
 
     # Build the pattern for finding the end of the tag.  Set Delimiter tags and
@@ -50,7 +51,7 @@ Parse = (template, start = 0, end = template.length) ->
 
     # Grab the tag contents, and advance the pointer beyond the end of the tag.
     throw "No end for tag!" unless endOfTag.test(template)
-    tag   = trim(RegExp.leftContext[start...]).split(/\s+|\b/g)
+    tag   = RegExp.leftContext[start...]
     start = endOfTag.lastIndex
 
     # If the next character in the template is a newline, that implies that
@@ -64,17 +65,27 @@ Parse = (template, start = 0, end = template.length) ->
     else
       buffer.push(whitespace)
 
-    # Handle the tag itself.
     switch tag[0]
-      when '!'
-        tag = null
+      # Comment Tag
+      when '!' then null
+
+      # Partial Tag
+      when '>'
+        buffer.push [ 'partial', whitespace, Parse(Partials[trim(tag[1..])])]
+
+      # Set Delimiters Tag
+      when '='
+        [tagOpen, tagClose] = trim(tag[1..]).split(/\s+/)
+        open  = ///(((\n)[#{' '}\t]*)?#{tagOpen})///g
+        close = ///(#{tagClose})///g
+
+      # Unescaped Interpolation Tag
       when '&', '{'
-        throw "Wrong number of parts in tag!" unless tag.length == 2
-        tag[0] = 'unescaped'
+        buffer.push [ 'unescaped', trim(tag[1..]) ]
+
+      # Escaped Interpolation Tag
       else
-        throw "Wrong number of parts in tag!" unless tag.length == 1
-        tag.unshift('escaped')
-    buffer.push(tag) if tag?
+        buffer.push [ 'escaped', trim(tag) ]
 
     # Advance the lastIndex for the open RegExp.
     open.lastIndex = start
@@ -94,7 +105,7 @@ escape = (value) ->
                replace(/>/, '&gt;')
 
 find = (name, stack) ->
-  for i in [(0)...-1]
+  for i in [stack.length - 1...-1]
     ctx = stack[i]
     continue unless name of ctx
     value = ctx[name]
@@ -107,12 +118,19 @@ find = (name, stack) ->
 handle = (part, context) ->
   return part if typeof part is 'string'
   switch part[0]
+    when 'partial'
+      [_, indent, partial] = part
+      content = (handle p, context for p in partial).join('')
+      content = content.replace(/^(?=.)/gm, indent) if indent
+      content
     when 'unescaped' then find(part[1], context)
     when 'escaped' then escape(find(part[1], context))
     else throw "Unknown tag type: #{part[0]}"
 
 Milk =
-  render: (template, data, partials, context = []) ->
+  render: (template, data, partials = {}, context = []) ->
+    [tagOpen, tagClose] = ['{{', '}}'] if context.length is 0
+    Partials = partials
     parsed = Parse template
     context.push data if data
     return (handle(part, context) for part in parsed).join('')
