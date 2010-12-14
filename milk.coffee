@@ -34,7 +34,7 @@ Parse = (template, start = 0, end = template.length) ->
     firstContentOnLine = yes
     if open.lastIndex > 0
       buffer.push(template[start...open.lastIndex])
-      previousChar = template[start - 1] == "\n"
+      firstContentOnLine = template[start - 1] == "\n"
     blank.test(template)
     whitespace = template[open.lastIndex...blank.lastIndex]
     start = blank.lastIndex + tagOpen.length
@@ -61,7 +61,7 @@ Parse = (template, start = 0, end = template.length) ->
     # rendered output completely.  If the tag was not "standalone", or it was
     # an interpolation tag, the whitespace we earlier removed should be re-
     # added.
-    if (firstContentOnLine and template[start + 1] and tag.length == 1)
+    if (firstContentOnLine and template[start] == "\n" and tag.length == 1)
       start++
     else
       buffer.push(whitespace)
@@ -98,7 +98,10 @@ find = (name, stack) ->
     ctx = stack[i]
     continue unless name of ctx
     value = ctx[name]
-    return value ? ''
+    return switch typeof value
+      when 'undefined' then ''
+      when 'function'  then value()
+      else value.toString()
   return ''
 
 handle = (part, context) ->
@@ -109,7 +112,7 @@ handle = (part, context) ->
     else throw "Unknown tag type: #{part[0]}"
 
 Milk =
-  render: (template, data, context = []) ->
+  render: (template, data, partials, context = []) ->
     parsed = Parse template
     context.push data if data
     return (handle(part, context) for part in parsed).join('')
@@ -119,4 +122,7 @@ Milk =
     delete TemplateCache[t] for t in tmpl
     return
 
-(exports ? this).Milk = Milk
+if exports?
+  exports[key] = Milk[key] for key of Milk
+else
+  this.Milk = Milk
