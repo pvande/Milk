@@ -7,10 +7,9 @@ tagOpen = '{{'
 tagClose = '}}'
 
 # Parses the given template between the start and end indexes.
-Parse = (template, start = 0, end = template.length) ->
+Parse = (template, pos = 0) ->
   # If we've got a cached parse tree for this template, return it.
-  subtemplate = template[start..end]
-  return TemplateCache[subtemplate] if template of TemplateCache
+  return TemplateCache[template] if template of TemplateCache
 
   # Set up fresh, clean parse and whitespace buffers.
   buffer = []
@@ -19,40 +18,37 @@ Parse = (template, start = 0, end = template.length) ->
   # Build a RegExp to match the start of a new tag.
   open  = ///((?:(\n)([#{' '}\t]*))?#{tagOpen})///g
   close = ///(#{tagClose})///g
-  open.lastIndex = start
+  open.lastIndex = pos
 
-  # Start walking through the template, searching for opening tags between
-  # start and end.
+  # Start walking through the template, searching for newly opened tags.
   while open.test(template)
-    break if open.lastIndex >= end
-
     # Append any text content before the tag, save any intervening whitespace,
     # and advance into the tag itself.  We'll also save off information about
     # whether this tag is potentially "standalone", which would change the
     # processing semantics.
     firstContentOnLine = yes
     if open.lastIndex > 0
-      buffer.push(RegExp.leftContext[start..])
+      buffer.push(RegExp.leftContext[pos..])
       buffer.push(RegExp.$2) if RegExp.$2
       firstContentOnLine = RegExp.$2 == "\n"
     whitespace = RegExp.$3
-    start = open.lastIndex
+    pos = open.lastIndex
 
     # Build the pattern for finding the end of the tag.  Set Delimiter tags and
     # Triple Mustache tags also have mirrored characters, which need to be
     # accounted for and removed.
     offset   = 0
-    offset   = 1 if template[start] in ['=', '{']
-    endOfTag = switch template[start]
+    offset   = 1 if template[pos] in ['=', '{']
+    endOfTag = switch template[pos]
       when '=' then ///([=]#{tagClose})///g
       when '{' then ///([}]#{tagClose})///g
       else close
-    endOfTag.lastIndex = start
+    endOfTag.lastIndex = pos
 
     # Grab the tag contents, and advance the pointer beyond the end of the tag.
     throw "No end for tag!" unless endOfTag.test(template)
-    tag   = RegExp.leftContext[start...]
-    start = endOfTag.lastIndex
+    tag   = RegExp.leftContext[pos...]
+    pos = endOfTag.lastIndex
 
     # If the next character in the template is a newline, that implies that
     # this tag was the only content on this line.  Excepting the interpolating
@@ -60,8 +56,8 @@ Parse = (template, start = 0, end = template.length) ->
     # rendered output completely.  If the tag was not "standalone", or it was
     # an interpolation tag, the whitespace we earlier removed should be re-
     # added.
-    if (firstContentOnLine && template[start] == "\n" && /[\W{&]/.test(tag[0]))
-      start++
+    if (firstContentOnLine && template[pos] == "\n" && /[^\w{&]/.test(tag[0]))
+      pos++
     else
       buffer.push(whitespace)
 
@@ -88,13 +84,13 @@ Parse = (template, start = 0, end = template.length) ->
         buffer.push [ 'escaped', trim(tag) ]
 
     # Advance the lastIndex for the open RegExp.
-    open.lastIndex = start
+    open.lastIndex = pos
 
   # Append any remaining template to the buffer.
-  buffer.push(template[start..end]) if start < end
+  buffer.push(template[pos..])
 
   # Cache the buffer for future calls.
-  TemplateCache[subtemplate] = buffer
+  TemplateCache[template] = buffer
 
   return buffer
 
