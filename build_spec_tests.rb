@@ -8,7 +8,7 @@ SPECS = File.join(__DIR__, 'ext', 'spec', 'specs')
 
 YAML::add_builtin_type('code') do |_, val|
   func = val['js']
-  def func.to_json(_); "`#{self}`"; end
+  def func.to_json(_); " `function() { return #{self} }`"; end
   func
 end
 
