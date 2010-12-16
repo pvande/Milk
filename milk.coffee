@@ -1,119 +1,125 @@
-trim = (str) -> str.replace(/^\s*|\s*$/g, '')
+# Milk is a simple, fast way to get more Mustache into your CoffeeScript and
+# Javascript.
+#
+# Plenty of good resources for Mustache can be found
+# [here](mustache.github.com), so little will be said about the templating
+# language itself here.
+#
+# Template rendering is broken into a couple of distinct phases: deconstructing
+# a parse tree, and generating the final result.
 
+#### Parsing
+
+# Mustache templates are reasonably simple -- plain text templates are
+# sprinkled with "tags", which are (by default) a pair of curly braces
+# surrounding some bit of content.
+[tagOpen, tagClose] = ['{{', '}}']
+
+# We're going to take the easy route this time, and just match away large parts
+# of the template with a regular expression.  This isn't likely the fastest
+# approach, but it is fairly simple.
+# Since the tag delimiters can change over time, we'll need to rebuild the
+# regex when they change.
+BuildRegex = ->
+  return ///
+    ((?:.|\n)*?)               # Capture the pre-tag content
+    ([#{' '}\t]*)              # Capture the pre-tag whitespace
+    (?:#{tagOpen} \s*)         # Match the opening tag
+    (?:
+      (=)   \s* (.+?) \s* = |  # Capture type and content for Set Delimiters
+      ({)   \s* (.+?) \s* } |  # Capture type and content for Triple Mustaches
+      (\W?) \s* ((?:.|\n)+?)   # Capture type and content for everything else
+    )
+    (?:\s* #{tagClose})        # Match the closing tag
+  ///gm
+
+# In the simplest case, we'll simply need a template string to parse.  If we've
+# parsed this template before, the cache will let us bail early.
 TemplateCache = {}
-Partials = {}
 
-tagOpen = '{{'
-tagClose = '}}'
-
-# Parses the given template between the start and end indexes.
-Parse = (template, sectionName, pos = 0) ->
-  # If we've got a cached parse tree for this template, return it.
+Parse = (template, sectionName = null, templateStart = 0) ->
   return TemplateCache[template] if template of TemplateCache
 
-  # Set up fresh, clean parse and whitespace buffers.
   buffer = []
-  whitespace = ''
 
-  # Build a RegExp to match the start of a new tag.
-  open  = ///((?:(^|\n)([#{' '}\t]*))?#{tagOpen})///g
-  close = ///(#{tagClose})///g
-  open.lastIndex = pos
+  tagPattern = BuildRegex()
+  tagPattern.lastIndex = pos = templateStart
 
-  # Start walking through the template, searching for newly opened tags.
-  while open.test(template)
-    # Append any text content before the tag, save any intervening whitespace,
-    # and advance into the tag itself.  We'll also save off information about
-    # whether this tag is potentially "standalone", which would change the
-    # processing semantics.
-    firstContentOnLine = yes
-    if RegExp.leftContext[pos..].length > 0
-      buffer.push(RegExp.leftContext[pos..])
-      firstContentOnLine = RegExp.$2 == "\n"
-    buffer.push(RegExp.$2) if RegExp.$2
-    whitespace = RegExp.$3
-    pos = open.lastIndex
+  # As we start matching things, we'll pull out the relevant captures, indices,
+  # and deterimine whether the tag is standalone.
+  while match = tagPattern.exec(template)
+    [content, whitespace] = match[1..2]
+    type = match[3] || match[5] || match[7]
+    tag  = match[4] || match[6] || match[8]
 
-    # Build the pattern for finding the end of the tag.  Set Delimiter tags and
-    # Triple Mustache tags also have mirrored characters, which need to be
-    # accounted for and removed.
-    offset   = 0
-    offset   = 1 if template[pos] in ['=', '{']
-    endOfTag = switch template[pos]
-      when '=' then ///([=]#{tagClose})///g
-      when '{' then ///([}]#{tagClose})///g
-      else close
-    endOfTag.lastIndex = pos
+    contentEnd = (pos + content.length) - 1
+    pos        = tagPattern.lastIndex
 
-    # Grab the tag contents, and advance the pointer beyond the end of the tag.
-    throw "No end for tag!" unless endOfTag.test(template)
-    tag = RegExp.leftContext[pos...]
-    pos = endOfTag.lastIndex
+    isStandalone = template[contentEnd] in [ undefined, '\n' ] and
+                   template[pos]        in [ undefined, '\n' ]
 
-    # If the next character in the template is a newline, that implies that
-    # this tag was the only content on this line.  Excepting the interpolating
-    # tags, this means that the tag in question should disappear from the
-    # rendered output completely.  If the tag was not "standalone", or it was
-    # an interpolation tag, the whitespace we earlier removed should be re-
-    # added.
-    if (firstContentOnLine && template[pos] == "\n" && /[^\w{&]/.test(tag[0]))
-      pos++
-    else
-      buffer.push(whitespace) if whitespace
+    # Append the static content to the buffer.
+    buffer.push content
 
-    switch tag[0]
-      # Comment Tag
-      when '!' then null
+    # If we're dealing with a standalone non-interpolation tag, we should skip
+    # over the newline immediately following the tag.  If we're not, we need
+    # give back the whitespace we've been holding hostage.
+    if isStandalone and type not in ['', '&', '{']
+      pos += 1
+    else if whitespace
+      buffer.push(whitespace)
+      whitespace = ''
 
-      # Partial Tag
-      when '>'
-        buffer.push [ 'partial', trim(tag[1..]), whitespace ]
+    # Next, we'll handle the tag itself:
+    switch type
 
-      # Section Tag
-      when '#'
-        [section..., pos] = Parse(template, trim(tag[1..]), pos)
-        buffer.push [ 'section', trim(tag[1..]), section  ]
+      # Comment tags should simply be ignored.
+      when '!' then break
 
-      # Inverted Section Tag
-      when '^'
-        [section..., pos] = Parse(template, trim(tag[1..]), pos)
-        buffer.push [ 'inverted', trim(tag[1..]), section  ]
+      # Interpolation tags only require the tag name.
+      when '', '&', '{' then buffer.push [ type, tag ]
 
-      # End Section Tag
+      # Partial will require the tag name and any leading whitespace, which
+      # will be used to indent the partial.
+      when '>' then buffer.push [ type, tag, whitespace ]
+
+      # Sections and Inverted Sections make a recursive call to `Parse`,
+      # starting immediately after the tag.  This call will continue to walk
+      # through the template until it reaches an End Section tag, when it will
+      # return the subtemplate it's parsed (and cached!) and the index after
+      # the End Section tag.  We'll save the tag name and subtemplate string.
+      when '#', '^'
+        [tmpl, pos] = Parse(template, tag, pos)
+        buffer.push [ type, tag, tmpl ]
+
       when '/'
-        buffer.push(pos)
-        return buffer
+        template = template[templateStart..contentEnd]
+        TemplateCache[template] = buffer
+        return [template, pos]
 
-      # Set Delimiters Tag
+      # The Set Delimeters tag doesn't actually generate output, but instead
+      # changes the tagPattern that the parser uses.  All delimeters need to be
+      # regex escaped for safety.
       when '='
-        [tagOpen, tagClose] = trim(tag[1..]).split(/\s+/)
-        open  = ///(((\n)[#{' '}\t]*)?#{tagOpen})///g
-        close = ///(#{tagClose})///g
+        [tagOpen, tagClose] = for delim in tag.split(/\s+/)
+          delim.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&")
+        tagPattern = BuildRegex()
 
-      # Unescaped Interpolation Tag
-      when '&', '{'
-        buffer.push [ 'unescaped', trim(tag[1..]) ]
+      else throw "Unknown tag type -- #{type}"
 
-      # Escaped Interpolation Tag
-      else
-        buffer.push [ 'escaped', trim(tag) ]
+    # And finally, we'll advance the tagPattern's lastIndex (so that it resumes
+    # parsing where we intend it to), and loop.
+    tagPattern.lastIndex = pos
 
-    # Advance the lastIndex for the open RegExp.
-    open.lastIndex = pos
-
-  # Append any remaining template to the buffer.
-  buffer.push(template[pos..]) if template[pos..]
-
-  # Cache the buffer for future calls.
-  TemplateCache[template] = buffer
-
-  return buffer
+  # When we've exhausted all of the matches for tagPattern, we'll still have a
+  # small portion of the template remaining.  We'll append it to the buffer,
+  # cache it, and return the buffer!
+  buffer.push(template[pos..])
+  return TemplateCache[template] = buffer
 
 escape = (value) ->
-  return value.replace(/&/, '&amp;').
-               replace(/"/, '&quot;').
-               replace(/</, '&lt;').
-               replace(/>/, '&gt;')
+  escapes = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
+  return value.replace(/[&"<>]/g, (c) -> "&#{escapes[c]};")
 
 find = (name, stack) ->
   for i in [stack.length - 1...-1]
@@ -133,14 +139,16 @@ Generate = (parsed, data, context = []) ->
 handle = (part, context) ->
   return part if typeof part is 'string'
   switch part[0]
-    when 'partial'
+    when '>'
       [_, name, indent] = part
+      throw "Meaningful error message" unless name of Partials
       partial = Parse(Partials[name])
       content = Generate(partial, {}, context)
       content = content.replace(/^(?=.)/gm, indent) if indent
       return content
-    when 'section'
-      [_, name, parsed] = part
+    when '#'
+      [_, name, tmpl] = part
+      parsed = Parse(tmpl)
       data = find(name, context)
       return switch data.constructor
         when Array
@@ -149,17 +157,21 @@ handle = (part, context) ->
           'f(x)'
         else
           if data then Generate(parsed, data, [context...]) else ''
-    when 'inverted'
-      [_, name, parsed] = part
+    when '^'
+      [_, name, tmpl] = part
+      parsed = Parse(tmpl)
       data = find(name, context)
       return switch data.constructor
         when Array
           if data.length == 0 then Generate(parsed, data, [context...]) else ''
         else
           if data then '' else Generate(parsed, data, [context...])
-    when 'unescaped' then find(part[1], context).toString()
-    when 'escaped' then escape(find(part[1], context).toString())
+    when '&', '{' then find(part[1], context).toString()
+    when '' then escape(find(part[1], context).toString())
     else throw "Unknown tag type: #{part[0]}"
+
+# Partials are generally static; we can store a single reference for now.
+Partials = {}
 
 Milk =
   render: (template, data, partials = {}, context = []) ->
