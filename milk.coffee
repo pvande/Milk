@@ -170,12 +170,13 @@ Generate = (buffer, data, partials = {}, context = []) ->
 
           # Unescaped interpolations should be returned directly; Escaped
           # interpolations will need to be HTML escaped for safety.
-          # For lambdas that we receive, 
+          # For lambdas that we receive, we'll simply call them and compile
+          # whatever they return.
           when '&', '{' 
-            value = Build(value().toString()) if value instanceof Function
+            value = Build(value()) if value instanceof Function
             value.toString()
           when ''
-            value = Build(value().toString()) if value instanceof Function            
+            value = Build(value()) if value instanceof Function
             Escape(value.toString())
 
   # The generated result is the concatenation of all these parts.
@@ -192,8 +193,16 @@ Find = (name, stack) ->
     value = ctx[name]
     break
 
-  # If the value is a function, we'll call it and use the result instead.
+  # If the value is a function, it will be treated like an object method; we'll
+  # call it, and use its return value as the new value.
+  # If the result is also a function, we'll treat that as an unbound lambda.
+  # Lambdas get called and cached when used in interpolations, and receive the
+  # raw section content when used in a Section tag.  Both are subsequently
+  # expanded in the current context.
   value = value.apply(ctx) if value instanceof Function
+
+  if (func = value) instanceof Function
+    value = -> ctx[name] = func.apply(this, arguments).toString()
 
   # Null values will be coerced to the empty string.
   return value ? ''
