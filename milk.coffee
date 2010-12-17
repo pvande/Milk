@@ -41,7 +41,6 @@ Parse = (template, sectionName = null, templateStart = 0) ->
   return TemplateCache[template] if template of TemplateCache
 
   buffer = []
-
   tagPattern = BuildRegex()
   tagPattern.lastIndex = pos = templateStart
 
@@ -117,73 +116,108 @@ Parse = (template, sectionName = null, templateStart = 0) ->
   buffer.push(template[pos..])
   return TemplateCache[template] = buffer
 
-escape = (value) ->
-  escapes = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
-  return value.replace(/[&"<>]/g, (c) -> "&#{escapes[c]};")
+#### Generating
 
-find = (name, stack) ->
+# Once we have a parse tree, transforming it back into a full template should
+# be fairly straightforward.  We start by building a context stack, which data
+# will be looked up from.
+Generate = (buffer, data, partials = {}, context = []) ->
+  context.push data if data and data.constructor is Object
+
+  Build = (tmpl, data) -> Generate(Parse(tmpl), data, partials, [context...])
+
+  parts = for part in buffer
+    switch typeof part
+
+      # Strings in the buffer can be used literally.
+      when 'string' then part
+
+      # Parsed tags (which will be Arrays in the given buffer) will need to be
+      # evaluated against the context stack.
+      else
+        [type, name, data] = part
+        value = Find(name, context) unless type is '>'
+
+        switch type
+
+          # Partials will be looked up by name (in this case, from the given
+          # hash) and built.  (Parsing the partial here means that we don't
+          # have to worry about recursive partials.)  If the partial tag was
+          # standalone and indented, the resulting content should be similarly
+          # indented.
+          when '>'
+            content = Build(partials[name] || '')
+            content = content.replace(/^(?=.)/gm, data) if data
+            content
+
+          # Sections will render when the name specified retreives a truthy
+          # value from the context stack, and should be repeated for each
+          # element if the value is an array.  If the value is a function, it
+          # should be called with the raw section template, and the return
+          # value should be built.
+          when '#'
+            switch (value ||= []).constructor
+              when Array    then (Build(data, v) for v in value).join('')
+              when Function then Build(value(data))
+              else               Build(data, value)
+
+          # Inverted Sections render under almost opposite conditions: their
+          # contents will only be rendered whene the retrieved value is falsey,
+          # or is an empty array.
+          when '^'
+            empty = (value ||= []) instanceof Array and value.length is 0
+            if empty then Build(data) else ''
+
+          # Unescaped interpolations should be returned directly; Escaped
+          # interpolations will need to be HTML escaped for safety.
+          # For lambdas that we receive, 
+          when '&', '{' 
+            value = Build(value().toString()) if value instanceof Function
+            value.toString()
+          when ''
+            value = Build(value().toString()) if value instanceof Function            
+            Escape(value.toString())
+
+  # The generated result is the concatenation of all these parts.
+  return parts.join('')
+
+#### Helpers
+
+# `Find` will walk the context stack from top to bottom, looking for an element
+# with the given name.
+Find = (name, stack) ->
+  value = ''
   for i in [stack.length - 1...-1]
-    ctx = stack[i]
-    continue unless name of ctx
+    continue unless name of (ctx = stack[i])
     value = ctx[name]
-    return switch typeof value
-      when 'undefined' then ''
-      when 'function'  then value()
-      else value
-  return ''
+    break
 
-Generate = (parsed, data, context = []) ->
-  context.push data if data.constructor is Object
-  (handle(part, context) for part in parsed).join('')
+  # If the value is a function, we'll call it and use the result instead.
+  value = value.apply(ctx) if value instanceof Function
 
-handle = (part, context) ->
-  return part if typeof part is 'string'
-  switch part[0]
-    when '>'
-      [_, name, indent] = part
-      throw "Meaningful error message" unless name of Partials
-      partial = Parse(Partials[name])
-      content = Generate(partial, {}, context)
-      content = content.replace(/^(?=.)/gm, indent) if indent
-      return content
-    when '#'
-      [_, name, tmpl] = part
-      parsed = Parse(tmpl)
-      data = find(name, context)
-      return switch data.constructor
-        when Array
-          (Generate(parsed, datum, [context...]) for datum in data).join('')
-        when Function
-          'f(x)'
-        else
-          if data then Generate(parsed, data, [context...]) else ''
-    when '^'
-      [_, name, tmpl] = part
-      parsed = Parse(tmpl)
-      data = find(name, context)
-      return switch data.constructor
-        when Array
-          if data.length == 0 then Generate(parsed, data, [context...]) else ''
-        else
-          if data then '' else Generate(parsed, data, [context...])
-    when '&', '{' then find(part[1], context).toString()
-    when '' then escape(find(part[1], context).toString())
-    else throw "Unknown tag type: #{part[0]}"
+  # Null values will be coerced to the empty string.
+  return value ? ''
 
-# Partials are generally static; we can store a single reference for now.
-Partials = {}
+# `Escape` lets us quickly replace HTML-reserved characters with their entity
+# equivalents.
+Escape = (value) ->
+  entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
+  return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")
 
+#### Exports
+
+# In CommonJS-based environments, Milk will export a single function, `render`.
+# In browsers, and other non-CommonJS environments, the object `Milk` will be
+# exported to the global namespace, containing the same `render` method.
+#
+# All environments presently support only synchronous rendering of in-memory
+# templates, partials, and data.
+#
+# Happy hacking!
 Milk =
-  render: (template, data, partials = {}, context = []) ->
+  render: (template, data, partials = {}) ->
     [tagOpen, tagClose] = ['{{', '}}']
-    Partials = partials
-    parsed = Parse template
-    return Generate(parsed, data)
-
-  clearCache: (tmpl...) ->
-    TemplateCache = {} unless tmpl.length
-    delete TemplateCache[t] for t in tmpl
-    return
+    return Generate(Parse(template), data, partials)
 
 if exports?
   exports[key] = Milk[key] for key of Milk
