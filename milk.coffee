@@ -202,7 +202,10 @@ Find = (name, stack) ->
   value = value.apply(ctx) if value instanceof Function
 
   if (func = value) instanceof Function
-    value = -> ctx[name] = func.apply(this, arguments).toString()
+    value = ->
+      result = func.apply(this, arguments).toString()
+      ctx[name] = result if arguments.length is 0
+      return result
 
   # Null values will be coerced to the empty string.
   return value ? ''
