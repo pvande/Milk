@@ -44,6 +44,28 @@ Parse = (template, sectionName = null, templateStart = 0) ->
   tagPattern = BuildRegex()
   tagPattern.lastIndex = pos = templateStart
 
+  # In case we run into problems, we need to be able to provide good diagnostic
+  # messages for the user.  We'll build a message with the line number, the
+  # template line in question, and the approximate position of the error within
+  # that line.
+  parseError = (errorPos, message) ->
+    (endOfLine = /$/gm).lastIndex = errorPos
+    endOfLine.exec(template)
+
+    parsedLines = template[...errorPos].split('\n')
+    lastLine = parsedLines[parsedLines.length - 1]
+    lastTag = lastLine.match(///#{tagOpen}.*?#{tagClose}$///)[0]
+
+    indent = (' ' for i in [0...(lastLine.length - lastTag.length)]).join('')
+    carets = ('^' for i in [0...lastTag.length]).join('')
+    message = """
+      #{message}
+
+      Line #{parsedLines.length}:
+      #{ lastLine + template[errorPos...endOfLine.lastIndex] }
+      #{ indent }#{ carets }
+    """
+
   # As we start matching things, we'll pull out the relevant captures, indices,
   # and deterimine whether the tag is standalone.
   while match = tagPattern.exec(template)
@@ -92,19 +114,32 @@ Parse = (template, sectionName = null, templateStart = 0) ->
         buffer.push [ type, tag, tmpl ]
 
       when '/'
+        if tag != sectionName
+          error = "End Section tag closes '#{tag}'; expected '#{sectionName}'!"
+        unless sectionName?
+          error = "End Section tag '#{tag}' found, but not in section!"
+        throw parseError(tagPattern.lastIndex, error) if error
+
         template = template[templateStart..contentEnd]
         TemplateCache[template] = buffer
         return [template, pos]
 
-      # The Set Delimeters tag doesn't actually generate output, but instead
-      # changes the tagPattern that the parser uses.  All delimeters need to be
+      # The Set Delimiters tag doesn't actually generate output, but instead
+      # changes the tagPattern that the parser uses.  All delimiters need to be
       # regex escaped for safety.
       when '='
-        [tagOpen, tagClose] = for delim in tag.split(/\s+/)
+        delimiters = tag.split(/\s+/)
+
+        unless delimiters.length == 2
+          error = "Set Delimiters tags should have two and only two values!"
+        throw parseError(tagPattern.lastIndex, error) if error
+
+        [tagOpen, tagClose] = for delim in delimiters
           delim.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&")
         tagPattern = BuildRegex()
 
-      else throw "Unknown tag type -- #{type}"
+      else
+        throw parseError(tagPattern.lastIndex, "Unknown tag type -- #{type}")
 
     # And finally, we'll advance the tagPattern's lastIndex (so that it resumes
     # parsing where we intend it to), and loop.
