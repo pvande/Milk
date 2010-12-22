@@ -10,39 +10,44 @@
 
 #### Parsing
 
+# In the simplest case, we'll simply need a template string to parse.  If we've
+# parsed this template before, the cache will let us bail early.  We do need to
+# remember to take the tag delimiters into account, however -- different parse
+# trees can exist for the same raw template!
+
 # Mustache templates are reasonably simple -- plain text templates are
 # sprinkled with "tags", which are (by default) a pair of curly braces
 # surrounding some bit of content.
-[tagOpen, tagClose] = ['{{', '}}']
 
-# We're going to take the easy route this time, and just match away large parts
-# of the template with a regular expression.  This isn't likely the fastest
-# approach, but it is fairly simple.
-# Since the tag delimiters can change over time, we'll need to rebuild the
-# regex when they change.
-BuildRegex = ->
-  return ///
-    ((?:.|\n)*?)               # Capture the pre-tag content
-    ([#{' '}\t]*)              # Capture the pre-tag whitespace
-    (?:#{tagOpen} \s*)         # Match the opening tag
-    (?:
-      (=)   \s* (.+?) \s* = |  # Capture type and content for Set Delimiters
-      ({)   \s* (.+?) \s* } |  # Capture type and content for Triple Mustaches
-      (\W?) \s* ((?:.|\n)+?)   # Capture type and content for everything else
-    )
-    (?:\s* #{tagClose})        # Match the closing tag
-  ///gm
-
-# In the simplest case, we'll simply need a template string to parse.  If we've
-# parsed this template before, the cache will let us bail early.
 TemplateCache = {}
 
-Parse = (template, sectionName = null, templateStart = 0) ->
-  return TemplateCache[template] if template of TemplateCache
+Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
+  cache = (TemplateCache[delimiters.join(' ')] ||= {})
+  return cache[template] if template of cache
 
   buffer = []
+
+  # We're going to take the easy route this time, and just match away large
+  # parts of the template with a regular expression.  This isn't likely the
+  # fastest approach, but it is fairly simple.
+  # Since the tag delimiters may change over time, we'll need to be able to
+  # rebuild the regex when they change.
+  [tagOpen, tagClose] = delimiters
+  BuildRegex = ->
+    return ///
+      ((?:.|\n)*?)              # Capture the pre-tag content
+      ([#{' '}\t]*)             # Capture the pre-tag whitespace
+      (?:#{tagOpen} \s*)        # Match the opening tag
+      (?:
+        (=)   \s* (.+?) \s* = | # Capture type and content for Set Delimiters
+        ({)   \s* (.+?) \s* } | # Capture type and content for Triple Mustaches
+        (\W?) \s* ((?:.|\n)+?)  # Capture type and content for everything else
+      )
+      (?:\s* #{tagClose})       # Match the closing tag
+    ///gm
+
   tagPattern = BuildRegex()
-  tagPattern.lastIndex = pos = templateStart
+  tagPattern.lastIndex = pos = start
 
   # In case we run into problems, we need to be able to provide good diagnostic
   # messages for the user.  We'll build a message with the line number, the
@@ -108,10 +113,11 @@ Parse = (template, sectionName = null, templateStart = 0) ->
       # starting immediately after the tag.  This call will continue to walk
       # through the template until it reaches an End Section tag, when it will
       # return the subtemplate it's parsed (and cached!) and the index after
-      # the End Section tag.  We'll save the tag name and subtemplate string.
+      # the End Section tag.  We'll save the tag name, current delimiters, and
+      # the subtemplate string.
       when '#', '^'
-        [tmpl, pos] = Parse(template, tag, pos)
-        buffer.push [ type, tag, tmpl ]
+        [tmpl, pos] = Parse(template, [tagOpen, tagClose], tag, pos)
+        buffer.push [ type, tag, [[tagOpen, tagClose], tmpl] ]
 
       when '/'
         if tag != sectionName
@@ -120,21 +126,21 @@ Parse = (template, sectionName = null, templateStart = 0) ->
           error = "End Section tag '#{tag}' found, but not in section!"
         throw parseError(tagPattern.lastIndex, error) if error
 
-        template = template[templateStart..contentEnd]
-        TemplateCache[template] = buffer
+        template = template[start..contentEnd]
+        TemplateCache[delimiters.join(' ')][template] = buffer
         return [template, pos]
 
       # The Set Delimiters tag doesn't actually generate output, but instead
       # changes the tagPattern that the parser uses.  All delimiters need to be
       # regex escaped for safety.
       when '='
-        delimiters = tag.split(/\s+/)
+        delims = tag.split(/\s+/)
 
-        unless delimiters.length == 2
+        unless delims.length == 2
           error = "Set Delimiters tags should have two and only two values!"
         throw parseError(tagPattern.lastIndex, error) if error
 
-        [tagOpen, tagClose] = for delim in delimiters
+        [tagOpen, tagClose] = for delim in delims
           delim.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&")
         tagPattern = BuildRegex()
 
@@ -149,7 +155,7 @@ Parse = (template, sectionName = null, templateStart = 0) ->
   # small portion of the template remaining.  We'll append it to the buffer,
   # cache it, and return the buffer!
   buffer.push(template[pos..])
-  return TemplateCache[template] = buffer
+  return TemplateCache[delimiters.join(' ')][template] = buffer
 
 #### Generating
 
@@ -159,7 +165,8 @@ Parse = (template, sectionName = null, templateStart = 0) ->
 Generate = (buffer, data, partials = {}, context = []) ->
   context.push data if data and data.constructor is Object
 
-  Build = (tmpl, data) -> Generate(Parse(tmpl), data, partials, [context...])
+  Build = (tmpl, data, delims) ->
+    Generate(Parse(tmpl, delims), data, partials, [context...])
 
   parts = for part in buffer
     switch typeof part
@@ -191,17 +198,22 @@ Generate = (buffer, data, partials = {}, context = []) ->
           # should be called with the raw section template, and the return
           # value should be built.
           when '#'
+            [delims, tmpl] = data
             switch (value ||= []).constructor
-              when Array    then (Build(data, v) for v in value).join('')
-              when Function then Build(value(data))
-              else               Build(data, value)
+              when Array
+                (Build(tmpl, v, delims) for v in value).join('')
+              when Function
+                Build(value(tmpl), null, delims)
+              else
+                Build(tmpl, value, delims)
 
           # Inverted Sections render under almost opposite conditions: their
           # contents will only be rendered whene the retrieved value is falsey,
           # or is an empty array.
           when '^'
+            [delims, tmpl] = data
             empty = (value ||= []) instanceof Array and value.length is 0
-            if empty then Build(data) else ''
+            if empty then Build(tmpl, null, delims) else ''
 
           # Unescaped interpolations should be returned directly; Escaped
           # interpolations will need to be HTML escaped for safety.
@@ -263,7 +275,6 @@ Escape = (value) ->
 # Happy hacking!
 Milk =
   render: (template, data, partials = {}) ->
-    [tagOpen, tagClose] = ['{{', '}}']
     return Generate(Parse(template), data, partials)
 
 if exports?
