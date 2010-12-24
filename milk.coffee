@@ -188,7 +188,8 @@ Generate = (buffer, data, partials = {}, context = []) ->
           # standalone and indented, the resulting content should be similarly
           # indented.
           when '>'
-            content = Build(partials[name] || '')
+            throw "Unknown partial '#{name}'!" unless name of partials
+            content = Build(partials[name].toString())
             content = content.replace(/^(?=.)/gm, data) if data
             content
 
