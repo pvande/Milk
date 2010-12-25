@@ -227,6 +227,9 @@ Generate = (buffer, data, partials = {}, context = []) ->
             value = Build(value()) if value instanceof Function
             Escape(value.toString())
 
+          else
+            throw "Unknown tag type -- #{type}"
+
   # The generated result is the concatenation of all these parts.
   return parts.join('')
 
