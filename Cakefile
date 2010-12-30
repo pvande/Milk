@@ -13,50 +13,56 @@ task 'build:js', 'Builds Milk into ./pages (or --output)', (options) ->
     throw err if err
     fs.writeFile path.join(out, 'milk.js'), CoffeeScript.compile(data)
 
-task 'spec:node', 'Creates compliance tests for the Mustache spec', ->
+task 'spec:node', 'Creates compliance tests for the Mustache spec in Vows', ->
+  readSpecs (file, json) ->
+    test = """
+           vows  = require('vows');
+           equal = require('assert').equal;
+           Milk  = require('milk');
+           suite = vows.describe('Mustache Specification - #{file}');
+
+           tests  = #{json}['tests'];
+
+           var batch = {};
+           for (var i = 0; i < tests.length; i++) {
+             var test = tests[i];
+
+             var context = {};
+             context['topic']   = #{topic};
+             context[test.desc] = function(r) { equal(r, test.expected) };
+
+             batch[test.name] = context
+           }
+
+           suite.addBatch(batch);
+           suite.export(module);
+           """
+    testFile = file.replace(/^~/, '').replace(/\.yml$/, '_spec.js')
+    fs.writeFile path.join(__dirname, 'test', testFile), test
+
+readSpecs = (callback) ->
   # Convert the YAML files to Javascript.
-  # Requires the YAML and JSON libraries.
-  ruby =  'ruby -rubygems -e "require \'yaml\'" -e "require \'json\'"'
-  ruby += " -e 'YAML::add_builtin_type(\"code\") do"
-  ruby += "   |_,v| v[\"js\"].tap do |x|"
-  ruby += "     def x.to_json(_)"
-  ruby += "       \"function() { return \#{self}; }\""
-  ruby += "     end"
-  ruby += "   end"
-  ruby += " end'"
-  ruby += " -e 'print YAML.load_file(ARGV[0]).to_json()'"
+  # Requires the YAML and JSON Ruby libraries.
+  ruby = '''
+         ruby -rubygems
+         -e 'require "yaml"'
+         -e 'require "json"'
+         -e 'YAML::add_builtin_type("code") do |_,value|
+               value["js"].tap do |x|
+                 def x.to_json(_)
+                   "function() { return #{self}; }"
+                 end
+               end
+             end'
+         -e 'print YAML.load_file(ARGV[0]).to_json()'
+         '''.replace(/\n/gm, ' ')
 
-  dir   = path.join(__dirname, 'ext', 'spec', 'specs')
-  files = fs.readdirSync dir
-  for file in files
+  dir = path.join(__dirname, 'ext', 'spec', 'specs')
+  for file in fs.readdirSync(dir)
     do (file) ->
-      exec "#{ruby} -- #{path.join(dir, file)}", (err, json, _) ->
+      exec "#{ruby} -- #{path.join(dir, file)}", (err, stdout, stderr) ->
         throw err if err
-
-        test = """
-               vows  = require('vows');
-               equal = require('assert').equal;
-               Milk  = require('milk');
-               suite = vows.describe('Mustache Specification - #{file}');
-
-               tests  = #{json}['tests'];
-
-               var batch = {};
-               for (var i = 0; i < tests.length; i++) {
-                 var test = tests[i];
-
-                 var context = {};
-                 context['topic']   = #{topic};
-                 context[test.desc] = function(r) { equal(r, test.expected) };
-
-                 batch[test.name] = context
-               }
-
-               suite.addBatch(batch);
-               suite.export(module);
-               """
-        testFile = file.replace(/^~/, '').replace(/\.yml$/, '_spec.js')
-        fs.writeFile path.join(__dirname, 'test', testFile), test
+        callback(file, stdout)
 
 topic = ->
   try Milk.render(test.template, test.data, test.partials || {})
