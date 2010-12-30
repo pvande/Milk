@@ -40,7 +40,43 @@ task 'spec:node', 'Creates compliance tests for the Mustache spec in Vows', ->
     testFile = file.replace(/^~/, '').replace(/\.yml$/, '_spec.js')
     fs.writeFile path.join(__dirname, 'test', testFile), test
 
-readSpecs = (callback) ->
+task 'spec:html', 'Creates compliance tests for the Mustache spec in HTML', ->
+  invoke('build:js')
+  spec = (file, json) ->
+    """
+    describe("Mustache Specification - #{file}", function() {
+      var tests = #{json}['tests'];
+      for (var i = 0; i < tests.length; i++) {
+        it(tests[i].desc, buildTest(tests[i]));
+      }
+    });
+    """
+
+  readSpecs spec, (specs) ->
+    lib = 'https://github.com/pivotal/jasmine/raw/1.0.1-release/lib'
+    fs.writeFile path.join(__dirname, 'pages', 'compliance.html'),
+      """
+      <html>
+      <head>
+      <link rel="stylesheet" type="text/css" href="#{lib}/jasmine.css" />
+      <script type="text/javascript" src="#{lib}/jasmine.js"></script>
+      <script type="text/javascript" src="#{lib}/jasmine-html.js"></script>
+      <script type="text/javascript" src="milk.js"></script>
+      </head>
+      <body>
+      <script type="text/javascript">
+      function buildTest(test) {
+        return function() { expect((#{topic})()).toEqual(test.expected) };
+      }
+      #{specs.join('\n')}
+      jasmine.getEnv().addReporter(new jasmine.TrivialReporter());
+      jasmine.getEnv().execute();
+      </script>
+      </body>
+      </html>
+      """
+
+readSpecs = (callback, allDone = (->)) ->
   # Convert the YAML files to Javascript.
   # Requires the YAML and JSON Ruby libraries.
   ruby = '''
@@ -57,12 +93,14 @@ readSpecs = (callback) ->
          -e 'print YAML.load_file(ARGV[0]).to_json()'
          '''.replace(/\n/gm, ' ')
 
+  results = []
   dir = path.join(__dirname, 'ext', 'spec', 'specs')
-  for file in fs.readdirSync(dir)
+  for file in (files = fs.readdirSync(dir))
     do (file) ->
       exec "#{ruby} -- #{path.join(dir, file)}", (err, stdout, stderr) ->
         throw err if err
-        callback(file, stdout)
+        results.push(callback(file, stdout))
+        allDone(results) if (files.length == results.length)
 
 topic = ->
   try Milk.render(test.template, test.data, test.partials || {})
