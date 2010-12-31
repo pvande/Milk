@@ -5,13 +5,22 @@ CoffeeScript = require 'coffee-script'
 
 option '-o', '--output [DIR]', 'directory for compiled code'
 
-task 'build:js', 'Builds Milk into ./pages (or --output)', (options) ->
-  out  = options.output or 'pages'
-  out  = path.join(__dirname, out) unless out[0] = '/'
+task 'build:js', 'Builds Milk into ./pages (or --output)', (opts) ->
+  out = opts.output or 'pages'
+  out = path.join(__dirname, out) unless out[0] = '/'
 
   fs.readFile path.join(__dirname, 'milk.coffee'), 'utf8', (err, data) ->
     throw err if err
     fs.writeFile path.join(out, 'milk.js'), CoffeeScript.compile(data)
+
+task 'build:docs', 'Builds documentation with Docco', (opts) ->
+  chain = (commands...) ->
+    exec commands.shift(), (err) ->
+      throw err if err
+      chain commands... if commands.length
+  chain 'docco milk.coffee',
+        'mv docs/milk.html pages/index.html',
+        'rm -r docs',
 
 task 'spec:node', 'Creates compliance tests for the Mustache spec in Vows', ->
   readSpecs (file, json) ->
