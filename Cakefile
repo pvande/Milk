@@ -5,6 +5,11 @@ CoffeeScript = require 'coffee-script'
 
 option '-o', '--output [DIR]', 'directory for compiled code'
 
+task 'build', 'Rebuilds all public web resources', ->
+  invoke('build:js')
+  invoke('build:docs')
+  invoke('spec:html')
+
 task 'build:js', 'Builds Milk into ./pages (or --output)', (opts) ->
   out = opts.output or 'pages'
   out = path.join(__dirname, out) unless out[0] = '/'
@@ -13,7 +18,7 @@ task 'build:js', 'Builds Milk into ./pages (or --output)', (opts) ->
     throw err if err
     fs.writeFile path.join(out, 'milk.js'), CoffeeScript.compile(data)
 
-task 'build:docs', 'Builds documentation with Docco', (opts) ->
+task 'build:docs', 'Builds documentation with Docco', ->
   chain = (commands...) ->
     exec commands.shift(), (err) ->
       throw err if err
@@ -77,7 +82,7 @@ task 'spec:html', 'Creates compliance tests for the Mustache spec in HTML', ->
       function buildTest(test) {
         return function() { expect((#{topic})()).toEqual(test.expected) };
       }
-      #{specs.join('\n')}
+      #{specs.sort().join('\n')}
       jasmine.getEnv().addReporter(new jasmine.TrivialReporter());
       jasmine.getEnv().execute();
       </script>
