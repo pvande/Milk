@@ -1,9 +1,46 @@
 fs           = require 'fs'
 path         = require 'path'
 {exec}       = require 'child_process'
-CoffeeScript = require 'coffee-script'
 
 option '-o', '--output [DIR]', 'directory for compiled code'
+
+task 'benchmark', 'Run a simple benchmark of Milk', ->
+  sys  = require 'sys'
+  Milk = require 'milk'
+  tmpl = """
+         <h1>{{header}}</h1>
+         {{#list}}
+           <ul>
+           {{#item}}
+             {{#current}}
+               <li><strong>{{name}}</strong></li>
+             {{/current}}
+             {{#link}}
+               <li><a href="{{url}}">{{name}}</a></li>
+             {{/link}}
+           {{/item}}
+           </ul>
+         {{/list}}
+         {{#empty}}
+           <p>The list is empty.</p>
+         {{/empty}}
+         """
+
+  start = new Date()
+  process.addListener 'exit', ->
+    sys.error "Time taken: #{ (new Date() - start) / 1000 } secs"
+
+  for i in [0..1000000]
+    Milk.render tmpl,
+      header: () -> "Colors"
+      item: [
+        { name: "red", current: true, url: "#Red" }
+        { name: "green", current: false, url: "#Green" }
+        { name: "blue", current: false, url: "#Blue" }
+      ]
+      link:  -> this["current"] != true
+      list:  -> this.item.length != 0
+      empty: -> this.item.length == 0
 
 task 'build', 'Rebuilds all public web resources', ->
   invoke('build:js')
@@ -11,6 +48,8 @@ task 'build', 'Rebuilds all public web resources', ->
   invoke('spec:html')
 
 task 'build:js', 'Builds Milk into ./pages (or --output)', (opts) ->
+  CoffeeScript = require 'coffee-script'
+
   out = opts.output or 'pages'
   out = path.join(__dirname, out) unless out[0] = '/'
 
