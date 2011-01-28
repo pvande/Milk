@@ -189,9 +189,9 @@ Generate = (buffer, data, partials = {}, context = []) ->
           # indented.
           when '>'
             throw "Unknown partial '#{name}'!" unless name of partials
-            content = Build(partials[name].toString())
-            content = content.replace(/^(?=.)/gm, data) if data
-            content
+            partial = partials[name].toString()
+            partial = partial.replace(/^(?=.)/gm, data) if data
+            Build(partial)
 
           # Sections will render when the name specified retreives a truthy
           # value from the context stack, and should be repeated for each
