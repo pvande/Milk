@@ -120,7 +120,7 @@
     return TemplateCache[delimiters.join(' ')][template] = buffer;
   };
   Generate = function(buffer, data, partials, context) {
-    var Build, content, delims, empty, name, part, parts, tmpl, type, v, value;
+    var Build, delims, empty, name, part, partial, parts, tmpl, type, v, value;
     if (partials == null) {
       partials = {};
     }
@@ -152,11 +152,11 @@
                   if (!(name in partials)) {
                     throw "Unknown partial '" + name + "'!";
                   }
-                  content = Build(partials[name].toString());
+                  partial = partials[name].toString();
                   if (data) {
-                    content = content.replace(/^(?=.)/gm, data);
+                    partial = partial.replace(/^(?=.)/gm, data);
                   }
-                  return content;
+                  return Build(partial);
                 case '#':
                   delims = data[0], tmpl = data[1];
                   switch ((value || (value = [])).constructor) {
