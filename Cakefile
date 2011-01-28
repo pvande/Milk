@@ -78,13 +78,12 @@ task 'spec:node', 'Creates compliance tests for the Mustache spec in Vows', ->
 
            var batch = {};
            for (var i = 0; i < tests.length; i++) {
-             var test = tests[i];
+             (function(test) {
+               var context = { "topic": #{topic} };
+               context[test.desc] = function(r) { equal(r, test.expected) };
 
-             var context = {};
-             context['topic']   = #{topic};
-             context[test.desc] = function(r) { equal(r, test.expected) };
-
-             batch[test.name] = context
+               batch[test.name] = context;
+             })(tests[i]);
            }
 
            suite.addBatch(batch);
