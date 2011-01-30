@@ -3,7 +3,7 @@
   var __slice = Array.prototype.slice;
   TemplateCache = {};
   Parse = function(template, delimiters, sectionName, start) {
-    var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, parseError, pos, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4, _ref5;
+    var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, parseError, pos, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4;
     if (delimiters == null) {
       delimiters = ['{{', '}}'];
     }
@@ -55,7 +55,7 @@
       tag = match[4] || match[6] || match[8];
       contentEnd = (pos + content.length) - 1;
       pos = tagPattern.lastIndex;
-      isStandalone = ((_ref2 = template[contentEnd]) === void 0 || _ref2 === '\n') && ((_ref3 = template[pos]) === void 0 || _ref3 === '\n');
+      isStandalone = (contentEnd === -1 || template[contentEnd] === '\n') && ((_ref2 = template[pos]) === void 0 || _ref2 === '\n');
       buffer.push(content);
       if (isStandalone && (type !== '' && type !== '&' && type !== '{')) {
         pos += 1;
@@ -76,7 +76,7 @@
           break;
         case '#':
         case '^':
-          _ref4 = Parse(template, [tagOpen, tagClose], tag, pos), tmpl = _ref4[0], pos = _ref4[1];
+          _ref3 = Parse(template, [tagOpen, tagClose], tag, pos), tmpl = _ref3[0], pos = _ref3[1];
           buffer.push([type, tag, [[tagOpen, tagClose], tmpl]]);
           break;
         case '/':
@@ -100,7 +100,7 @@
           if (error) {
             throw parseError(tagPattern.lastIndex, error);
           }
-          _ref5 = (function() {
+          _ref4 = (function() {
             var _i, _len, _results;
             _results = [];
             for (_i = 0, _len = delims.length; _i < _len; _i++) {
@@ -108,7 +108,7 @@
               _results.push(delim.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&"));
             }
             return _results;
-          })(), tagOpen = _ref5[0], tagClose = _ref5[1];
+          })(), tagOpen = _ref4[0], tagClose = _ref4[1];
           tagPattern = BuildRegex();
           break;
         default:
