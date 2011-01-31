@@ -35,15 +35,15 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
   [tagOpen, tagClose] = delimiters
   BuildRegex = ->
     return ///
-      ((?:.|\n)*?)              # Capture the pre-tag content
+      ([\s\S]*?)                # Capture the pre-tag content
       ([#{' '}\t]*)             # Capture the pre-tag whitespace
-      (?:#{tagOpen} \s*)        # Match the opening tag
+      #{tagOpen} \s*            # Match the opening tag
       (?:
         (=)   \s* (.+?) \s* = | # Capture type and content for Set Delimiters
         ({)   \s* (.+?) \s* } | # Capture type and content for Triple Mustaches
-        (\W?) \s* ((?:.|\n)+?)  # Capture type and content for everything else
+        (\W?) \s* ([\s\S]+?)    # Capture type and content for everything else
       )
-      (?:\s* #{tagClose})       # Match the closing tag
+      \s* #{tagClose}           # Match the closing tag
     ///gm
 
   tagPattern = BuildRegex()
