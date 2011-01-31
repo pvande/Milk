@@ -20,7 +20,7 @@
     buffer = [];
     tagOpen = delimiters[0], tagClose = delimiters[1];
     BuildRegex = function() {
-      return RegExp("((?:.|\\n)*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*)(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|(\\W?)\\s*((?:.|\\n)+?))(?:\\s*" + tagClose + ")", "gm");
+      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|(\\W?)\\s*([\\s\\S]+?))\\s*" + tagClose, "gm");
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = start;
