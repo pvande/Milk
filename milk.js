@@ -55,7 +55,7 @@
       tag = match[4] || match[6] || match[8];
       contentEnd = (pos + content.length) - 1;
       pos = tagPattern.lastIndex;
-      isStandalone = (contentEnd === -1 || template[contentEnd] === '\n') && ((_ref2 = template[pos]) === void 0 || _ref2 === '\n');
+      isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template[pos]) === void 0 || _ref2 === '\n');
       buffer.push(content);
       if (isStandalone && (type !== '' && type !== '&' && type !== '{')) {
         pos += 1;
