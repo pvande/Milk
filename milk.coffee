@@ -82,7 +82,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     pos        = tagPattern.lastIndex
 
     isStandalone = (contentEnd == -1 or template.charAt(contentEnd) == '\n') &&
-                   template[pos] in [ undefined, '\n' ]
+                   template.charAt(pos) in [ undefined, '\n' ]
 
     # Append the static content to the buffer.
     buffer.push content
