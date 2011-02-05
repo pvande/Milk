@@ -57,9 +57,9 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     (endOfLine = /$/gm).lastIndex = errorPos
     endOfLine.exec(template)
 
-    parsedLines = template[...errorPos].split('\n')
+    parsedLines = template.substr(0, errorPos).split('\n')
     lastLine    = parsedLines[parsedLines.length - 1]
-    lastTag     = lastLine.match(///#{tagOpen}.*?#{tagClose}$///)[0]
+    lastTag     = template.substr(contentEnd + 1, errorPos - contentEnd - 1)
 
     indent  = new Array(lastLine.length - lastTag.length + 1).join(' ')
     carets  = new Array(lastTag.length + 1).join('^')
@@ -67,7 +67,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
       #{message}
 
       Line #{parsedLines.length}:
-      #{ lastLine + template[errorPos...endOfLine.lastIndex] }
+      #{ lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos) }
       #{ indent }#{ carets }
     """
 
@@ -94,6 +94,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
       pos += 1
     else if whitespace
       buffer.push(whitespace)
+      contentEnd += whitespace.length
       whitespace = ''
 
     # Next, we'll handle the tag itself:
