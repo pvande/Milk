@@ -28,12 +28,12 @@
       var carets, endOfLine, indent, lastLine, lastTag, parsedLines;
       (endOfLine = /$/gm).lastIndex = errorPos;
       endOfLine.exec(template);
-      parsedLines = template.slice(0, errorPos).split('\n');
+      parsedLines = template.substr(0, errorPos).split('\n');
       lastLine = parsedLines[parsedLines.length - 1];
-      lastTag = lastLine.match(RegExp("" + tagOpen + ".*?" + tagClose + "$"))[0];
+      lastTag = template.substr(contentEnd + 1, errorPos - contentEnd - 1);
       indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
       carets = new Array(lastTag.length + 1).join('^');
-      return message = "" + message + "\n\nLine " + parsedLines.length + ":\n" + (lastLine + template.slice(errorPos, endOfLine.lastIndex)) + "\n" + indent + carets;
+      return message = "" + message + "\n\nLine " + parsedLines.length + ":\n" + (lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos)) + "\n" + indent + carets;
     };
     while (match = tagPattern.exec(template)) {
       _ref = match.slice(1, 3), content = _ref[0], whitespace = _ref[1];
@@ -47,6 +47,7 @@
         pos += 1;
       } else if (whitespace) {
         buffer.push(whitespace);
+        contentEnd += whitespace.length;
         whitespace = '';
       }
       switch (type) {
