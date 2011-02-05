@@ -58,11 +58,11 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     endOfLine.exec(template)
 
     parsedLines = template[...errorPos].split('\n')
-    lastLine = parsedLines[parsedLines.length - 1]
-    lastTag = lastLine.match(///#{tagOpen}.*?#{tagClose}$///)[0]
+    lastLine    = parsedLines[parsedLines.length - 1]
+    lastTag     = lastLine.match(///#{tagOpen}.*?#{tagClose}$///)[0]
 
-    indent = (' ' for i in [0...(lastLine.length - lastTag.length)]).join('')
-    carets = ('^' for i in [0...lastTag.length]).join('')
+    indent  = new Array(lastLine.length - lastTag.length + 1).join(' ')
+    carets  = new Array(lastTag.length + 1).join('^')
     message = """
       #{message}
 
