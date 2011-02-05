@@ -25,28 +25,14 @@
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = start;
     parseError = function(errorPos, message) {
-      var carets, endOfLine, i, indent, lastLine, lastTag, parsedLines;
+      var carets, endOfLine, indent, lastLine, lastTag, parsedLines;
       (endOfLine = /$/gm).lastIndex = errorPos;
       endOfLine.exec(template);
       parsedLines = template.slice(0, errorPos).split('\n');
       lastLine = parsedLines[parsedLines.length - 1];
       lastTag = lastLine.match(RegExp("" + tagOpen + ".*?" + tagClose + "$"))[0];
-      indent = ((function() {
-        var _ref, _results;
-        _results = [];
-        for (i = 0, _ref = lastLine.length - lastTag.length; (0 <= _ref ? i < _ref : i > _ref); (0 <= _ref ? i += 1 : i -= 1)) {
-          _results.push(' ');
-        }
-        return _results;
-      })()).join('');
-      carets = ((function() {
-        var _ref, _results;
-        _results = [];
-        for (i = 0, _ref = lastTag.length; (0 <= _ref ? i < _ref : i > _ref); (0 <= _ref ? i += 1 : i -= 1)) {
-          _results.push('^');
-        }
-        return _results;
-      })()).join('');
+      indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
+      carets = new Array(lastTag.length + 1).join('^');
       return message = "" + message + "\n\nLine " + parsedLines.length + ":\n" + (lastLine + template.slice(errorPos, endOfLine.lastIndex)) + "\n" + indent + carets;
     };
     while (match = tagPattern.exec(template)) {
