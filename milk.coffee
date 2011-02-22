@@ -37,13 +37,13 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     return ///
       ([\s\S]*?)                # Capture the pre-tag content
       ([#{' '}\t]*)             # Capture the pre-tag whitespace
-      #{tagOpen} \s*            # Match the opening tag
+      (?: #{tagOpen} \s*        # Match the opening tag
       (?:
         (=)   \s* (.+?) \s* = | # Capture type and content for Set Delimiters
         ({)   \s* (.+?) \s* } | # Capture type and content for Triple Mustaches
         (\W?) \s* ([\s\S]+?)    # Capture type and content for everything else
       )
-      \s* #{tagClose}           # Match the closing tag
+      \s* #{tagClose} )         # Match the closing tag
     ///gm
 
   tagPattern = BuildRegex()
@@ -63,13 +63,13 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
 
     indent  = new Array(lastLine.length - lastTag.length + 1).join(' ')
     carets  = new Array(lastTag.length + 1).join('^')
-    message = """
-      #{message}
-
-      Line #{parsedLines.length}:
-      #{ lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos) }
-      #{ indent }#{ carets }
-    """
+    message = [
+      message,
+      '',
+      "Line #{parsedLines.length}:", 
+      lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos),
+      "#{indent}#{carets}"
+    ].join("\n")
 
   # As we start matching things, we'll pull out the relevant captures, indices,
   # and deterimine whether the tag is standalone.
