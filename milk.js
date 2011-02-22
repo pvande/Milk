@@ -20,7 +20,7 @@
     buffer = [];
     tagOpen = delimiters[0], tagClose = delimiters[1];
     BuildRegex = function() {
-      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|(\\W?)\\s*([\\s\\S]+?))\\s*" + tagClose, "gm");
+      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|(\\W?)\\s*([\\s\\S]+?))\\s*" + tagClose + ")", "gm");
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = start;
@@ -33,7 +33,7 @@
       lastTag = template.substr(contentEnd + 1, errorPos - contentEnd - 1);
       indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
       carets = new Array(lastTag.length + 1).join('^');
-      return message = "" + message + "\n\nLine " + parsedLines.length + ":\n" + (lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos)) + "\n" + indent + carets;
+      return message = [message, '', "Line " + parsedLines.length + ":", lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos), "" + indent + carets].join("\n");
     };
     while (match = tagPattern.exec(template)) {
       _ref = match.slice(1, 3), content = _ref[0], whitespace = _ref[1];
