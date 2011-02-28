@@ -222,10 +222,10 @@ Generate = (buffer, data, partials = {}, context = []) ->
           # For lambdas that we receive, we'll simply call them and compile
           # whatever they return.
           when '&', '{' 
-            value = Build(value()) if value instanceof Function
+            value = Build(value().toString()) if value instanceof Function
             value.toString()
           when ''
-            value = Build(value()) if value instanceof Function
+            value = Build(value().toString()) if value instanceof Function
             Escape(value.toString())
 
           else
@@ -248,16 +248,9 @@ Find = (name, stack) ->
   # If the value is a function, it will be treated like an object method; we'll
   # call it, and use its return value as the new value.
   # If the result is also a function, we'll treat that as an unbound lambda.
-  # Lambdas get called and cached when used in interpolations, and receive the
-  # raw section content when used in a Section tag.  Both are subsequently
-  # expanded in the current context.
+  # Lambdas receive the raw section content when used in a Section tag, and
+  # automatically render the returned values against the current context.
   value = value.apply(ctx) if value instanceof Function
-
-  if (func = value) instanceof Function
-    value = ->
-      result = func.apply(this, arguments).toString()
-      ctx[name] = result if arguments.length is 0
-      return result
 
   # Null values will be coerced to the empty string.
   return value ? ''

@@ -148,6 +148,7 @@ readSpecs = (callback, allDone = (->)) ->
   results = []
   dir = path.join(__dirname, 'ext', 'spec', 'specs')
   for file in (files = fs.readdirSync(dir))
+    continue unless file.match(/\.yml$/)
     do (file) ->
       exec "#{ruby} -- #{path.join(dir, file)}", (err, stdout, stderr) ->
         throw err if err
