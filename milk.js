@@ -173,12 +173,12 @@
                 case '&':
                 case '{':
                   if (value instanceof Function) {
-                    value = Build(value());
+                    value = Build(value().toString());
                   }
                   return value.toString();
                 case '':
                   if (value instanceof Function) {
-                    value = Build(value());
+                    value = Build(value().toString());
                   }
                   return Escape(value.toString());
                 default:
@@ -192,7 +192,7 @@
     return parts.join('');
   };
   Find = function(name, stack) {
-    var ctx, func, i, value, _ref, _ref2;
+    var ctx, i, value, _ref, _ref2;
     value = '';
     for (i = _ref = stack.length - 1, _ref2 = -1; (_ref <= _ref2 ? i < _ref2 : i > _ref2); (_ref <= _ref2 ? i += 1 : i -= 1)) {
       if (!(name in (ctx = stack[i]))) {
@@ -203,16 +203,6 @@
     }
     if (value instanceof Function) {
       value = value.apply(ctx);
-    }
-    if ((func = value) instanceof Function) {
-      value = function() {
-        var result;
-        result = func.apply(this, arguments).toString();
-        if (arguments.length === 0) {
-          ctx[name] = result;
-        }
-        return result;
-      };
     }
     return value != null ? value : '';
   };
