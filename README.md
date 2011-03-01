@@ -14,7 +14,7 @@ Milk
       He saw clearly, as he looked across his paper-strewn desk, that the task
     could be changed – and for once, it looked like fun.
 
-Milk is a [spec-conforming](https://github.com/mustache/spec) (v1.0.0)
+Milk is a [spec-conforming](https://github.com/mustache/spec) (v1.0+λ)
 implementation of the [Mustache](http://mustache.github.com) templating
 language, written in [CoffeeScript](http://coffeescript.com).  Templates can be
 rendered server-side (through Node.js or any other CommonJS platform), or,
