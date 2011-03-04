@@ -39,9 +39,9 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
       ([#{' '}\t]*)             # Capture the pre-tag whitespace
       (?: #{tagOpen} \s*        # Match the opening tag
       (?:
-        (=)   \s* (.+?) \s* = | # Capture type and content for Set Delimiters
-        ({)   \s* (.+?) \s* } | # Capture type and content for Triple Mustaches
-        (\W?) \s* ([\s\S]+?)    # Capture type and content for everything else
+        (=)            \s* (.+?) \s* = | # Set Delimiters
+        ({)            \s* (.+?) \s* } | # Triple Mustaches
+        ([^0-9a-zA-Z._]?) \s* ([\s\S]+?)    # Everything else
       )
       \s* #{tagClose} )         # Match the closing tag
     ///gm
@@ -164,7 +164,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
 # be fairly straightforward.  We start by building a context stack, which data
 # will be looked up from.
 Generate = (buffer, data, partials = {}, context = []) ->
-  context.push data if data and data.constructor is Object
+  context.push data
 
   Build = (tmpl, data, delims) ->
     Generate(Parse(tmpl, delims), data, partials, [context...])
@@ -239,9 +239,11 @@ Generate = (buffer, data, partials = {}, context = []) ->
 # `Find` will walk the context stack from top to bottom, looking for an element
 # with the given name.
 Find = (name, stack) ->
+  return stack[stack.length - 1] if name == '.'
   value = ''
   for i in [stack.length - 1...-1]
-    continue unless name of (ctx = stack[i])
+    continue unless stack[i]?
+    continue unless typeof stack[i] == 'object' and name of (ctx = stack[i])
     value = ctx[name]
     break
 
