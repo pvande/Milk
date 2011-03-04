@@ -237,15 +237,19 @@ Generate = (buffer, data, partials = {}, context = []) ->
 #### Helpers
 
 # `Find` will walk the context stack from top to bottom, looking for an element
-# with the given name.
+# with the given name.  '.' is a special name, representing the element on the
+# top of the stack, and dotted names perform chained resolutions.
 Find = (name, stack) ->
   return stack[stack.length - 1] if name == '.'
+  [name, parts...] = name.split(/\./)
   value = ''
   for i in [stack.length - 1...-1]
     continue unless stack[i]?
     continue unless typeof stack[i] == 'object' and name of (ctx = stack[i])
     value = ctx[name]
     break
+
+  value = Find(part, [value]) for part in parts
 
   # If the value is a function, it will be treated like an object method; we'll
   # call it, and use its return value as the new value.
