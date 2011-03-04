@@ -20,7 +20,7 @@
     buffer = [];
     tagOpen = delimiters[0], tagClose = delimiters[1];
     BuildRegex = function() {
-      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|(\\W?)\\s*([\\s\\S]+?))\\s*" + tagClose + ")", "gm");
+      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|([^0-9a-zA-Z._]?)\\s*([\\s\\S]+?))\\s*" + tagClose + ")", "gm");
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = start;
@@ -114,9 +114,7 @@
     if (context == null) {
       context = [];
     }
-    if (data && data.constructor === Object) {
-      context.push(data);
-    }
+    context.push(data);
     Build = function(tmpl, data, delims) {
       return Generate(Parse(tmpl, delims), data, partials, __slice.call(context));
     };
@@ -192,14 +190,25 @@
     return parts.join('');
   };
   Find = function(name, stack) {
-    var ctx, i, value, _ref, _ref2;
+    var ctx, i, part, parts, value, _i, _len, _ref, _ref2, _ref3;
+    if (name === '.') {
+      return stack[stack.length - 1];
+    }
+    _ref = name.split(/\./), name = _ref[0], parts = 2 <= _ref.length ? __slice.call(_ref, 1) : [];
     value = '';
-    for (i = _ref = stack.length - 1, _ref2 = -1; (_ref <= _ref2 ? i < _ref2 : i > _ref2); (_ref <= _ref2 ? i += 1 : i -= 1)) {
-      if (!(name in (ctx = stack[i]))) {
+    for (i = _ref2 = stack.length - 1, _ref3 = -1; (_ref2 <= _ref3 ? i < _ref3 : i > _ref3); (_ref2 <= _ref3 ? i += 1 : i -= 1)) {
+      if (stack[i] == null) {
+        continue;
+      }
+      if (!(typeof stack[i] === 'object' && name in (ctx = stack[i]))) {
         continue;
       }
       value = ctx[name];
       break;
+    }
+    for (_i = 0, _len = parts.length; _i < _len; _i++) {
+      part = parts[_i];
+      value = Find(part, [value]);
     }
     if (value instanceof Function) {
       value = value.apply(ctx);
