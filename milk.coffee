@@ -167,7 +167,7 @@ Generate = (buffer, data, partials = {}, context = []) ->
   context.push data
 
   Build = (tmpl, data, delims) ->
-    Generate(Parse(tmpl, delims), data, partials, [context...])
+    Generate(Parse(tmpl + "", delims), data, partials, [context...])
 
   parts = for part in buffer
     switch typeof part
@@ -251,12 +251,17 @@ Find = (name, stack) ->
 
   value = Find(part, [value]) for part in parts
 
-  # If the value is a function, it will be treated like an object method; we'll
-  # call it, and use its return value as the new value.
+  # If the value is a function, it will be treated like an object method;
+  # we'll call it, and use its return value as the new value.  Object methods
+  # being used for sections receive the raw section content, and automatically
+  # render the returned values against the current context.
   # If the result is also a function, we'll treat that as an unbound lambda.
-  # Lambdas receive the raw section content when used in a Section tag, and
-  # automatically render the returned values against the current context.
-  value = value.apply(ctx) if value instanceof Function
+  # Lambdas are treated as object methods, except that `this` is not bound.
+  if value instanceof Function
+    value = do (value) ->
+      (tmpl) ->
+        val = value.apply(ctx, [tmpl])
+        return (val instanceof Function) and val(tmpl) or val
 
   # Null values will be coerced to the empty string.
   return value ? ''
