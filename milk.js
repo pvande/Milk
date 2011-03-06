@@ -116,7 +116,7 @@
     }
     context.push(data);
     Build = function(tmpl, data, delims) {
-      return Generate(Parse(tmpl, delims), data, partials, __slice.call(context));
+      return Generate(Parse(tmpl + "", delims), data, partials, __slice.call(context));
     };
     parts = (function() {
       var _i, _len, _results;
@@ -211,7 +211,16 @@
       value = Find(part, [value]);
     }
     if (value instanceof Function) {
-      value = value.apply(ctx);
+      value = (function(value) {
+        return function(tmpl) {
+          var v;
+          v = value.apply(ctx, [tmpl]);
+          if (v instanceof Function) {
+            v = v(tmpl);
+          }
+          return v;
+        };
+      })(value);
     }
     return value != null ? value : '';
   };
