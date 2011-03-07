@@ -164,11 +164,11 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
 # Once we have a parse tree, transforming it back into a full template should
 # be fairly straightforward.  We start by building a context stack, which data
 # will be looked up from.
-Generate = (buffer, data, partials = {}, context = []) ->
+Generate = (buffer, data, partials = {}, context = [], Escape) ->
   context.push data
 
   Build = (tmpl, data, delims) ->
-    Generate(Parse(tmpl + "", delims), data, partials, [context...])
+    Generate(Parse("#{tmpl}", delims), data, partials, [context...], Escape)
 
   parts = for part in buffer
     switch typeof part
@@ -267,25 +267,24 @@ Find = (name, stack) ->
   # Null values will be coerced to the empty string.
   return value ? ''
 
-# `Escape` lets us quickly replace HTML-reserved characters with their entity
-# equivalents.
-Escape = (value) ->
-  entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
-  return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")
-
 #### Exports
 
-# In CommonJS-based environments, Milk will export a single function, `render`.
+# In CommonJS-based environments, Milk will export both a `render` function
+# and a function `escape` for doing basic HTML escaping.
 # In browsers, and other non-CommonJS environments, the object `Milk` will be
-# exported to the global namespace, containing the same `render` method.
+# exported to the global namespace, containing the same methods.
 #
 # All environments presently support only synchronous rendering of in-memory
 # templates, partials, and data.
 #
 # Happy hacking!
 Milk =
-  render: (template, data, partials = {}) ->
-    return Generate(Parse(template), data, partials)
+  render: (template, data, partials = {}) =>
+    return Generate(Parse(template), data, partials, [], @escape)
+
+  escape: (value) ->
+    entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
+    return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")
 
 if exports?
   exports[key] = Milk[key] for key of Milk
