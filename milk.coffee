@@ -82,7 +82,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     pos        = tagPattern.lastIndex
 
     isStandalone = (contentEnd == -1 or template.charAt(contentEnd) == '\n') &&
-                   template.charAt(pos) in [ undefined, '\n' ]
+                   template.charAt(pos) in [ undefined, '\r', '\n' ]
 
     # Append the static content to the buffer.
     buffer.push content
@@ -91,7 +91,8 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     # over the newline immediately following the tag.  If we're not, we need
     # give back the whitespace we've been holding hostage.
     if isStandalone and type not in ['', '&', '{']
-      pos += 1
+      pos += 1 if template.charAt(pos) == '\r'
+      pos += 1 if template.charAt(pos) == '\n'
     else if whitespace
       buffer.push(whitespace)
       contentEnd += whitespace.length
