@@ -1,6 +1,6 @@
 (function() {
-  var Escape, Find, Generate, Milk, Parse, TemplateCache, key;
-  var __slice = Array.prototype.slice;
+  var Find, Generate, Milk, Parse, TemplateCache, key;
+  var __slice = Array.prototype.slice, __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
   TemplateCache = {};
   Parse = function(template, delimiters, sectionName, start) {
     var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, parseError, pos, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4;
@@ -111,7 +111,7 @@
     buffer.push(template.slice(pos));
     return TemplateCache[delimiters.join(' ')][template] = buffer;
   };
-  Generate = function(buffer, data, partials, context) {
+  Generate = function(buffer, data, partials, context, Escape) {
     var Build, delims, empty, name, part, partial, parts, tmpl, type, v, value;
     if (partials == null) {
       partials = {};
@@ -121,7 +121,7 @@
     }
     context.push(data);
     Build = function(tmpl, data, delims) {
-      return Generate(Parse(tmpl + "", delims), data, partials, __slice.call(context));
+      return Generate(Parse("" + tmpl, delims), data, partials, __slice.call(context), Escape);
     };
     parts = (function() {
       var _i, _len, _results;
@@ -226,24 +226,24 @@
     }
     return value != null ? value : '';
   };
-  Escape = function(value) {
-    var entities;
-    entities = {
-      '&': 'amp',
-      '"': 'quot',
-      '<': 'lt',
-      '>': 'gt'
-    };
-    return value.replace(/[&"<>]/g, function(char) {
-      return "&" + entities[char] + ";";
-    });
-  };
   Milk = {
-    render: function(template, data, partials) {
+    render: __bind(function(template, data, partials) {
       if (partials == null) {
         partials = {};
       }
-      return Generate(Parse(template), data, partials);
+      return Generate(Parse(template), data, partials, [], this.escape);
+    }, this),
+    escape: function(value) {
+      var entities;
+      entities = {
+        '&': 'amp',
+        '"': 'quot',
+        '<': 'lt',
+        '>': 'gt'
+      };
+      return value.replace(/[&"<>]/g, function(char) {
+        return "&" + entities[char] + ";";
+      });
     }
   };
   if (typeof exports != "undefined" && exports !== null) {
