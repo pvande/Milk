@@ -41,10 +41,15 @@
       tag = match[4] || match[6] || match[8];
       contentEnd = (pos + content.length) - 1;
       pos = tagPattern.lastIndex;
-      isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template.charAt(pos)) === void 0 || _ref2 === '\n');
+      isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template.charAt(pos)) === void 0 || _ref2 === '\r' || _ref2 === '\n');
       buffer.push(content);
       if (isStandalone && (type !== '' && type !== '&' && type !== '{')) {
-        pos += 1;
+        if (template.charAt(pos) === '\r') {
+          pos += 1;
+        }
+        if (template.charAt(pos) === '\n') {
+          pos += 1;
+        }
       } else if (whitespace) {
         buffer.push(whitespace);
         contentEnd += whitespace.length;
@@ -213,12 +218,9 @@
     if (value instanceof Function) {
       value = (function(value) {
         return function(tmpl) {
-          var v;
-          v = value.apply(ctx, [tmpl]);
-          if (v instanceof Function) {
-            v = v(tmpl);
-          }
-          return v;
+          var val;
+          val = value.apply(ctx, [tmpl]);
+          return (val instanceof Function) && val(tmpl) || val;
         };
       })(value);
     }
