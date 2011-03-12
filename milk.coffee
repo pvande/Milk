@@ -274,14 +274,23 @@ Find = (name, stack) ->
 # In browsers, and other non-CommonJS environments, the object `Milk` will be
 # exported to the global namespace, containing the same methods.
 #
+# The `Milk` export also contains a special key, `Milk.helpers`.  Any object
+# (or every object of an array) assigned to this key will be accessible on the
+# bottom of the context stack, allowing for common behavior (e.g. markup,
+# highlighting, or internationalization) to be made "globally" available to
+# the rendering engine.
+#
 # All environments presently support only synchronous rendering of in-memory
 # templates, partials, and data.
 #
 # Happy hacking!
-Milk =
-  render: (template, data, partials = {}) =>
-    return Generate(Parse(template), data, partials, [], @escape)
+Render = (template, data, partials = {}) ->
+  helpers = if @helpers instanceof Array then [@helpers...] else [@helpers]
+  return Generate(Parse(template), data, partials, helpers, @escape)
 
+Milk =
+  render: -> Render.apply(exports ? Milk, arguments)
+  helpers: []
   escape: (value) ->
     entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
     return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")

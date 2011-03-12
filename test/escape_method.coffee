@@ -13,6 +13,7 @@ suite.addBatch
       assert.equal(esc('Interpolated &entity;'), 'Interpolated &amp;entity;')
       assert.equal(esc('<img src="x" />'), '&lt;img src=&quot;x&quot; /&gt;')
 
+suite.addBatch
   "Replacing the #escape method":
     topic: ->
       @escape = Milk.escape
