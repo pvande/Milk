@@ -186,13 +186,22 @@ and a function <code>escape</code> for doing basic HTML escaping.
 In browsers, and other non-CommonJS environments, the object <code>Milk</code> will be
 exported to the global namespace, containing the same methods.</p>
 
+<p>The <code>Milk</code> export also contains a special key, <code>Milk.helpers</code>.  Any object
+(or every object of an array) assigned to this key will be accessible on the
+bottom of the context stack, allowing for common behavior (e.g. markup,
+highlighting, or internationalization) to be made "globally" available to
+the rendering engine.</p>
+
 <p>All environments presently support only synchronous rendering of in-memory
 templates, partials, and data.</p>
 
-<p>Happy hacking!</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">Milk</span> <span class="o">=</span>
-  <span class="nv">render: </span><span class="p">(</span><span class="nx">template</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">partials</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">=&gt;</span>
-    <span class="k">return</span> <span class="nx">Generate</span><span class="p">(</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">template</span><span class="p">),</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">partials</span><span class="p">,</span> <span class="p">[],</span> <span class="err">@</span><span class="nx">escape</span><span class="p">)</span>
+<p>Happy hacking!</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">Render</span> <span class="o">=</span> <span class="p">(</span><span class="nx">template</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">partials</span> <span class="o">=</span> <span class="p">{})</span> <span class="o">-&gt;</span>
+  <span class="nx">helpers</span> <span class="o">=</span> <span class="k">if</span> <span class="err">@</span><span class="nx">helpers</span> <span class="k">instanceof</span> <span class="nb">Array</span> <span class="k">then</span> <span class="p">[</span><span class="err">@</span><span class="nx">helpers</span><span class="p">...]</span> <span class="k">else</span> <span class="p">[</span><span class="err">@</span><span class="nx">helpers</span><span class="p">]</span>
+  <span class="k">return</span> <span class="nx">Generate</span><span class="p">(</span><span class="nx">Parse</span><span class="p">(</span><span class="nx">template</span><span class="p">),</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">partials</span><span class="p">,</span> <span class="nx">helpers</span><span class="p">,</span> <span class="err">@</span><span class="nx">escape</span><span class="p">)</span>
 
+<span class="nx">Milk</span> <span class="o">=</span>
+  <span class="nv">render: </span><span class="o">-&gt;</span> <span class="nx">Render</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">exports</span> <span class="o">?</span> <span class="nx">Milk</span><span class="p">,</span> <span class="nx">arguments</span><span class="p">)</span>
+  <span class="nv">helpers: </span><span class="p">[]</span>
   <span class="nv">escape: </span><span class="p">(</span><span class="nx">value</span><span class="p">)</span> <span class="o">-&gt;</span>
     <span class="nx">entities</span> <span class="o">=</span> <span class="p">{</span> <span class="s1">&#39;&amp;&#39;</span><span class="o">:</span> <span class="s1">&#39;amp&#39;</span><span class="p">,</span> <span class="s1">&#39;&quot;&#39;</span><span class="o">:</span> <span class="s1">&#39;quot&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;&#39;</span><span class="o">:</span> <span class="s1">&#39;lt&#39;</span><span class="p">,</span> <span class="s1">&#39;&gt;&#39;</span><span class="o">:</span> <span class="s1">&#39;gt&#39;</span> <span class="p">}</span>
     <span class="k">return</span> <span class="nx">value</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/[&amp;&quot;&lt;&gt;]/g</span><span class="p">,</span> <span class="p">(</span><span class="nx">char</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;&amp;#{ entities[char] };&quot;</span><span class="p">)</span>

@@ -1,6 +1,6 @@
 (function() {
-  var Find, Generate, Milk, Parse, TemplateCache, key;
-  var __slice = Array.prototype.slice, __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var Find, Generate, Milk, Parse, Render, TemplateCache, key;
+  var __slice = Array.prototype.slice;
   TemplateCache = {};
   Parse = function(template, delimiters, sectionName, start) {
     var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, parseError, pos, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4;
@@ -165,6 +165,7 @@
                     default:
                       return Build(tmpl, value, delims);
                   }
+                  break;
                 case '^':
                   delims = data[0], tmpl = data[1];
                   empty = (value || (value = [])) instanceof Array && value.length === 0;
@@ -173,6 +174,7 @@
                   } else {
                     return '';
                   }
+                  break;
                 case '&':
                 case '{':
                   if (value instanceof Function) {
@@ -226,13 +228,19 @@
     }
     return value != null ? value : '';
   };
+  Render = function(template, data, partials) {
+    var helpers;
+    if (partials == null) {
+      partials = {};
+    }
+    helpers = this.helpers instanceof Array ? __slice.call(this.helpers) : [this.helpers];
+    return Generate(Parse(template), data, partials, helpers, this.escape);
+  };
   Milk = {
-    render: __bind(function(template, data, partials) {
-      if (partials == null) {
-        partials = {};
-      }
-      return Generate(Parse(template), data, partials, [], this.escape);
-    }, this),
+    render: function() {
+      return Render.apply(typeof exports != "undefined" && exports !== null ? exports : Milk, arguments);
+    },
+    helpers: [],
     escape: function(value) {
       var entities;
       entities = {
