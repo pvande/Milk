@@ -41,7 +41,7 @@
       tag = match[4] || match[6] || match[8];
       contentEnd = (pos + content.length) - 1;
       pos = tagPattern.lastIndex;
-      isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template.charAt(pos)) === void 0 || _ref2 === '\r' || _ref2 === '\n');
+      isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template.charAt(pos)) === void 0 || _ref2 === '' || _ref2 === '\r' || _ref2 === '\n');
       buffer.push(content);
       if (isStandalone && (type !== '' && type !== '&' && type !== '{')) {
         if (template.charAt(pos) === '\r') {
