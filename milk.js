@@ -113,9 +113,6 @@
   };
   Generate = function(buffer, data, partials, context, Escape) {
     var Build, delims, empty, name, part, partial, parts, tmpl, type, v, value;
-    if (partials == null) {
-      partials = {};
-    }
     if (context == null) {
       context = [];
     }
@@ -139,10 +136,7 @@
               }
               switch (type) {
                 case '>':
-                  if (!(name in partials)) {
-                    throw "Unknown partial '" + name + "'!";
-                  }
-                  partial = partials[name].toString();
+                  partial = partials(name).toString();
                   if (data) {
                     partial = partial.replace(/^(?=.)/gm, data);
                   }
@@ -231,9 +225,20 @@
   Render = function(template, data, partials) {
     var helpers;
     if (partials == null) {
-      partials = {};
+      partials = null;
     }
     helpers = this.helpers instanceof Array ? __slice.call(this.helpers) : [this.helpers];
+    partials || (partials = this.partials || {});
+    if (!(partials instanceof Function)) {
+      partials = (function(partials) {
+        return function(name) {
+          if (!(name in partials)) {
+            throw "Unknown partial '" + name + "'!";
+          }
+          return Find(name, [partials]);
+        };
+      })(partials);
+    }
     return Generate(Parse(template), data, partials, helpers, this.escape);
   };
   Milk = {
