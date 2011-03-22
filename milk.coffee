@@ -164,7 +164,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
 # Once we have a parse tree, transforming it back into a full template should
 # be fairly straightforward.  We start by building a context stack, which data
 # will be looked up from.
-Generate = (buffer, data, partials = {}, context = [], Escape) ->
+Generate = (buffer, data, partials, context = [], Escape) ->
   context.push data
 
   Build = (tmpl, data, delims) ->
@@ -190,8 +190,7 @@ Generate = (buffer, data, partials = {}, context = [], Escape) ->
           # standalone and indented, the resulting content should be similarly
           # indented.
           when '>'
-            throw "Unknown partial '#{name}'!" unless name of partials
-            partial = partials[name].toString()
+            partial = partials(name).toString()
             partial = partial.replace(/^(?=.)/gm, data) if data
             Build(partial)
 
@@ -284,8 +283,15 @@ Find = (name, stack) ->
 # templates, partials, and data.
 #
 # Happy hacking!
-Render = (template, data, partials = {}) ->
+Render = (template, data, partials = null) ->
   helpers = if @helpers instanceof Array then [@helpers...] else [@helpers]
+
+  partials ||= @partials || {}
+  unless partials instanceof Function
+    partials = do (partials) -> (name) ->
+      throw "Unknown partial '#{name}'!" unless name of partials
+      Find(name, [partials])
+
   return Generate(Parse(template), data, partials, helpers, @escape)
 
 Milk =
