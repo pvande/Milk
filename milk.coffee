@@ -151,7 +151,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
 
     # And finally, we'll advance the tagPattern's lastIndex (so that it resumes
     # parsing where we intend it to), and loop.
-    tagPattern.lastIndex = pos
+    tagPattern.lastIndex = if pos? then pos else template.length
 
   # When we've exhausted all of the matches for tagPattern, we'll still have a
   # small portion of the template remaining.  We'll append it to the buffer,
