@@ -24,17 +24,28 @@
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = start;
-    parseError = function(errorPos, message) {
-      var carets, endOfLine, indent, lastLine, lastTag, parsedLines;
-      (endOfLine = /$/gm).lastIndex = errorPos;
+    parseError = function(pos, message) {
+      var carets, e, endOfLine, error, indent, key, lastLine, lastTag, lineNo, parsedLines;
+      (endOfLine = /$/gm).lastIndex = pos;
       endOfLine.exec(template);
-      parsedLines = template.substr(0, errorPos).split('\n');
-      lastLine = parsedLines[parsedLines.length - 1];
-      lastTag = template.substr(contentEnd + 1, errorPos - contentEnd - 1);
-      console.log(lastTag);
+      parsedLines = template.substr(0, pos).split('\n');
+      lineNo = parsedLines.length;
+      lastLine = parsedLines[lineNo - 1];
+      lastTag = template.substr(contentEnd + 1, pos - contentEnd - 1);
       indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
       carets = new Array(lastTag.length + 1).join('^');
-      return message = [message, '', "Line " + parsedLines.length + ":", lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos), "" + indent + carets].join("\n");
+      lastLine = lastLine + template.substr(pos, endOfLine.lastIndex - pos);
+      error = new Error();
+      for (key in e = {
+        message: "" + message + "\n\nLine " + lineNo + ":\n" + lastLine + "\n" + indent + carets,
+        error: message,
+        line: lineNo,
+        char: indent.length,
+        tag: lastTag
+      }) {
+        error[key] = e[key];
+      }
+      return error;
     };
     while (match = tagPattern.exec(template)) {
       _ref = match.slice(1, 3), content = _ref[0], whitespace = _ref[1];
