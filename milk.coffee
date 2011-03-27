@@ -39,9 +39,10 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       ([#{' '}\t]*)             # Capture the pre-tag whitespace
       (?: #{tagOpen} \s*        # Match the opening tag
       (?:
-        (=)            \s* (.+?) \s* = | # Set Delimiters
-        ({)            \s* (.+?) \s* } | # Triple Mustaches
-        ([^0-9a-zA-Z._]?) \s* ([\s\S]+?)    # Everything else
+        (!)                  \s* ([\s\S]+?)       | # Comments
+        (=)                  \s* ([\s\S]+?) \s* = | # Set Delimiters
+        ({)                  \s* (\w[\S]*?) \s* } | # Triple Mustaches
+        ([^0-9a-zA-Z._!={]?) \s* ([\w.][\S]*?)      # Everything else
       )
       \s* #{tagClose} )         # Match the closing tag
     ///gm
@@ -77,8 +78,8 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
   # and deterimine whether the tag is standalone.
   while match = tagPattern.exec(template)
     [content, whitespace] = match[1..2]
-    type = match[3] || match[5] || match[7]
-    tag  = match[4] || match[6] || match[8]
+    type = match[3] || match[5] || match[7] || match[9]
+    tag  = match[4] || match[6] || match[8] || match[10]
 
     contentEnd = (pos + content.length) - 1
     pos        = tagPattern.lastIndex
