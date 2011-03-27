@@ -2,16 +2,13 @@
   var Find, Generate, Milk, Parse, Render, TemplateCache, key;
   var __slice = Array.prototype.slice;
   TemplateCache = {};
-  Parse = function(template, delimiters, sectionName, start) {
-    var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, parseError, pos, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4;
+  Parse = function(template, delimiters, section) {
+    var BuildRegex, buffer, cache, content, contentEnd, delim, delims, error, isStandalone, match, name, parseError, pos, sectionInfo, tag, tagClose, tagOpen, tagPattern, tmpl, type, whitespace, _name, _ref, _ref2, _ref3, _ref4;
     if (delimiters == null) {
       delimiters = ['{{', '}}'];
     }
-    if (sectionName == null) {
-      sectionName = null;
-    }
-    if (start == null) {
-      start = 0;
+    if (section == null) {
+      section = null;
     }
     cache = (TemplateCache[_name = delimiters.join(' ')] || (TemplateCache[_name] = {}));
     if (template in cache) {
@@ -23,15 +20,18 @@
       return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|([^0-9a-zA-Z._]?)\\s*([\\s\\S]+?))\\s*" + tagClose + ")", "gm");
     };
     tagPattern = BuildRegex();
-    tagPattern.lastIndex = pos = start;
+    tagPattern.lastIndex = pos = (section || {
+      start: 0
+    }).start;
     parseError = function(pos, message) {
-      var carets, e, endOfLine, error, indent, key, lastLine, lastTag, lineNo, parsedLines;
+      var carets, e, endOfLine, error, indent, key, lastLine, lastTag, lineNo, parsedLines, tagStart;
       (endOfLine = /$/gm).lastIndex = pos;
       endOfLine.exec(template);
       parsedLines = template.substr(0, pos).split('\n');
       lineNo = parsedLines.length;
       lastLine = parsedLines[lineNo - 1];
-      lastTag = template.substr(contentEnd + 1, pos - contentEnd - 1);
+      tagStart = contentEnd + whitespace.length;
+      lastTag = template.substr(tagStart + 1, pos - tagStart - 1);
       indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
       carets = new Array(lastTag.length + 1).join('^');
       lastLine = lastLine + template.substr(pos, endOfLine.lastIndex - pos);
@@ -80,20 +80,26 @@
           break;
         case '#':
         case '^':
-          _ref3 = Parse(template, [tagOpen, tagClose], tag, pos), tmpl = _ref3[0], pos = _ref3[1];
+          sectionInfo = {
+            name: tag,
+            start: pos,
+            error: parseError(tagPattern.lastIndex, "Unclosed section '" + tag + "'!")
+          };
+          _ref3 = Parse(template, [tagOpen, tagClose], sectionInfo), tmpl = _ref3[0], pos = _ref3[1];
           buffer.push([type, tag, [[tagOpen, tagClose], tmpl]]);
           break;
         case '/':
-          if (tag !== sectionName) {
-            error = "End Section tag closes '" + tag + "'; expected '" + sectionName + "'!";
-          }
-          if (sectionName == null) {
+          if (section == null) {
             error = "End Section tag '" + tag + "' found, but not in section!";
+          } else {
+            if (tag !== (name = section.name)) {
+              error = "End Section tag closes '" + tag + "'; expected '" + name + "'!";
+            }
           }
           if (error) {
             throw parseError(tagPattern.lastIndex, error);
           }
-          template = template.slice(start, (contentEnd + 1) || 9e9);
+          template = template.slice(section.start, (contentEnd + 1) || 9e9);
           TemplateCache[delimiters.join(' ')][template] = buffer;
           return [template, pos];
         case '=':
@@ -120,8 +126,8 @@
       }
       tagPattern.lastIndex = pos != null ? pos : template.length;
     }
-    if (sectionName != null) {
-      throw parseError(start, "Unclosed tag '" + sectionName + "'!");
+    if (section != null) {
+      throw section.error;
     }
     buffer.push(template.slice(pos));
     return TemplateCache[delimiters.join(' ')][template] = buffer;
