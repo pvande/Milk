@@ -235,11 +235,11 @@ Generate = (buffer, data, partials, context = [], Escape) ->
           # For lambdas that we receive, we'll simply call them and compile
           # whatever they return.
           when '&', '{' 
-            value = Build(value().toString()) if value instanceof Function
-            value.toString()
+            value = Build("#{value()}") if value instanceof Function
+            "#{value}"
           when ''
-            value = Build(value().toString()) if value instanceof Function
-            Escape(value.toString())
+            value = Build("#{value()}") if value instanceof Function
+            Escape("#{value}")
 
           else
             throw "Unknown tag type -- #{type}"
