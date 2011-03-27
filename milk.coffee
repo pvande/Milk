@@ -21,7 +21,7 @@
 
 TemplateCache = {}
 
-Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
+Parse = (template, delimiters = ['{{','}}'], section = null) ->
   cache = (TemplateCache[delimiters.join(' ')] ||= {})
   return cache[template] if template of cache
 
@@ -47,7 +47,7 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     ///gm
 
   tagPattern = BuildRegex()
-  tagPattern.lastIndex = pos = start
+  tagPattern.lastIndex = pos = (section || { start: 0 }).start
 
   # In case we run into problems, we need to be able to provide good diagnostic
   # messages for the user.  We'll build a message with the line number, the
@@ -60,7 +60,8 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     parsedLines = template.substr(0, pos).split('\n')
     lineNo      = parsedLines.length
     lastLine    = parsedLines[lineNo - 1]
-    lastTag     = template.substr(contentEnd + 1, pos - contentEnd - 1)
+    tagStart    = contentEnd + whitespace.length
+    lastTag     = template.substr(tagStart + 1, pos - tagStart - 1)
 
     indent   = new Array(lastLine.length - lastTag.length + 1).join(' ')
     carets   = new Array(lastTag.length + 1).join('^')
@@ -117,19 +118,26 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
       # through the template until it reaches an End Section tag, when it will
       # return the subtemplate it's parsed (and cached!) and the index after
       # the End Section tag.  We'll save the tag name, current delimiters, and
-      # the subtemplate string.
+      # the subtemplate string.  We also pass an error through to the `Parse`
+      # call -- sort of a "tell the wife and kids I love 'em" moment, really.
+      # (It's just more convenient to build the error here since we already
+      # have all the context we need.)
       when '#', '^'
-        [tmpl, pos] = Parse(template, [tagOpen, tagClose], tag, pos)
+        sectionInfo =
+          name: tag, start: pos
+          error: parseError(tagPattern.lastIndex, "Unclosed section '#{tag}'!")
+        [tmpl, pos] = Parse(template, [tagOpen, tagClose], sectionInfo)
         buffer.push [ type, tag, [[tagOpen, tagClose], tmpl] ]
 
       when '/'
-        if tag != sectionName
-          error = "End Section tag closes '#{tag}'; expected '#{sectionName}'!"
-        unless sectionName?
+        unless section?
           error = "End Section tag '#{tag}' found, but not in section!"
+        else
+          if tag != (name = section.name)
+            error = "End Section tag closes '#{tag}'; expected '#{name}'!"
         throw parseError(tagPattern.lastIndex, error) if error
 
-        template = template[start..contentEnd]
+        template = template[section.start..contentEnd]
         TemplateCache[delimiters.join(' ')][template] = buffer
         return [template, pos]
 
@@ -155,8 +163,8 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     tagPattern.lastIndex = if pos? then pos else template.length
 
   # We've finished parsing tags out of this template, so if we've still got a
-  # `sectionName`, someone left a section tag open.
-  throw parseError(start, "Unclosed tag '#{sectionName}'!") if sectionName?
+  # `section`, someone left a section tag open.
+  throw section.error if section?
 
   # Since we may have a little extra content after the last tag, we'll append
   # it to the buffer, cache it, and return the buffer!

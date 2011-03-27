@@ -86,6 +86,36 @@ suite.addBatch
       '''
     )
 
+  "Failing to close a top-level section":
+    throwsError(
+      {
+        message: "Error: Unclosed section 'section'!"
+        line: 2
+        character: 0
+        tag: '{{# section }}'
+      },
+      '''
+        Before...
+        {{# section }}
+        After...
+      '''
+    )
+
+  "Failing to close an indented top-level section":
+    throwsError(
+      {
+        message: "Error: Unclosed section 'section'!"
+        line: 2
+        character: 2
+        tag: '{{# section }}'
+      },
+      '''
+        Before...
+          {{# section }}
+        After...
+      '''
+    )
+
   "Specifying too few delimiters":
     throwsError(
       {
