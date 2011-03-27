@@ -53,23 +53,24 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
   # messages for the user.  We'll build a message with the line number, the
   # template line in question, and the approximate position of the error within
   # that line.
-  parseError = (errorPos, message) ->
-    (endOfLine = /$/gm).lastIndex = errorPos
+  parseError = (pos, message) ->
+    (endOfLine = /$/gm).lastIndex = pos
     endOfLine.exec(template)
 
-    parsedLines = template.substr(0, errorPos).split('\n')
-    lastLine    = parsedLines[parsedLines.length - 1]
-    lastTag     = template.substr(contentEnd + 1, errorPos - contentEnd - 1)
+    parsedLines = template.substr(0, pos).split('\n')
+    lineNo      = parsedLines.length
+    lastLine    = parsedLines[lineNo - 1]
+    lastTag     = template.substr(contentEnd + 1, pos - contentEnd - 1)
 
-    indent  = new Array(lastLine.length - lastTag.length + 1).join(' ')
-    carets  = new Array(lastTag.length + 1).join('^')
-    message = [
-      message,
-      '',
-      "Line #{parsedLines.length}:", 
-      lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos),
-      "#{indent}#{carets}"
-    ].join("\n")
+    indent   = new Array(lastLine.length - lastTag.length + 1).join(' ')
+    carets   = new Array(lastTag.length + 1).join('^')
+    lastLine = lastLine + template.substr(pos, endOfLine.lastIndex - pos)
+
+    error = new Error()
+    error[key] = e[key] for key of e =
+      message: "#{message}\n\nLine #{lineNo}:\n#{lastLine}\n#{indent}#{carets}"
+      error: message, line: lineNo, char: indent.length, tag: lastTag
+    return error
 
   # As we start matching things, we'll pull out the relevant captures, indices,
   # and deterimine whether the tag is standalone.

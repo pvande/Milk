@@ -11,7 +11,28 @@ throwsError = (error, tmpl) ->
     try
       render()
     catch e
-      assert.match(e, ///^#{error}///m)
+      assert.match(e.toString(), ///^#{error.message}///m)
+      return
+    assert.ok(false, "Did not throw error!")
+  'gives the correct line number in the thrown error': (render) ->
+    try
+      render()
+    catch e
+      assert.equal(e.line, error.line)
+      return
+    assert.ok(false, "Did not throw error!")
+  'gives the correct character number in the thrown error': (render) ->
+    try
+      render()
+    catch e
+      assert.equal(e.char, error.character)
+      return
+    assert.ok(false, "Did not throw error!")
+  'gives the correct errorful tag in the thrown error': (render) ->
+    try
+      render()
+    catch e
+      assert.equal(e.tag, error.tag)
       return
     assert.ok(false, "Did not throw error!")
 
@@ -20,7 +41,12 @@ suite = vows.describe 'Parse Errors'
 suite.addBatch
   "Closing the wrong section tag":
     throwsError(
-      "End Section tag closes 'other'; expected 'section'!",
+      {
+        message: "Error: End Section tag closes 'other'; expected 'section'!"
+        line: 4
+        character: 0
+        tag: '{{/other}}'
+      },
       '''
         Before...
         {{#section}}
@@ -32,7 +58,12 @@ suite.addBatch
 
   "Not closing a nested section tag":
     throwsError(
-      "End Section tag closes 'a'; expected 'b'!",
+      {
+        message: "Error: End Section tag closes 'a'; expected 'b'!"
+        line: 3
+        character: 0
+        tag: '{{/a}}'
+      },
       '''
         {{#a}}
           {{#b}}
@@ -42,7 +73,12 @@ suite.addBatch
 
   "Closing a section at the top level":
     throwsError(
-      "End Section tag 'section' found, but not in section!",
+      {
+        message: "Error: End Section tag 'section' found, but not in section!"
+        line: 2
+        character: 0
+        tag: '{{/section}}'
+      },
       '''
         Before...
         {{/section}}
@@ -52,53 +88,78 @@ suite.addBatch
 
   "Specifying too few delimiters":
     throwsError(
-      "Set Delimiters tags should have two and only two values!",
+      {
+        message: "Error: Set Delimiters tags should have two and only two values!"
+        line: 1
+        character: 0
+        tag: '{{= $$$ =}}'
+      },
       '{{= $$$ =}}'
     )
 
   "Specifying too many delimiters":
     throwsError(
-      "Set Delimiters tags should have two and only two values!",
+      {
+        message: "Error: Set Delimiters tags should have two and only two values!"
+        line: 1
+        character: 0
+        tag: '{{= $ $ $ =}}'
+      },
       '{{= $ $ $ =}}'
     )
 
   "Specifying an unknown tag type":
     throwsError(
-      "Unknown tag type -- §",
+      {
+        message: "Error: Unknown tag type -- §"
+        line: 1
+        character: 0
+        tag: '{{§ something }}'
+      },
       '{{§ something }}'
     )
 
-  "Indicating the tag":
+  "Specifying an errorful tag at the beginning of the line":
     throwsError(
-      "[^]{10}$",
+      {
+        message: "[^]{10}$"
+        line: 1
+        character: 0
+        tag: '{{$ tag }}'
+      },
       '{{$ tag }} is over here...'
     )
 
-  "Indicating a tag further in":
+  "Specifying an errorful tag further in on a line":
     throwsError(
-      "    [^]{10}$",
+      {
+        message: "    [^]{10}$"
+        line: 1
+        character: 4
+        tag: '{{$ tag }}'
+      },
       'Now {{$ tag }} is over here...'
     )
 
-  "Indicating the correct tag":
+  "Specifying an errorful tag amongst valid tags on the same line":
     throwsError(
-      "                                   [^]{10}",
+      {
+        message: "                                   [^]{10}"
+        line: 1
+        character: 35
+        tag: '{{$ tag }}'
+      },
       'Yes, this is a {{ tag }}, but this {{$ tag }} is {{invalid}}.'
     )
 
-  "Indicating the correct line":
+  "Specifying an errorful tag amongst valid tags on different lines":
     throwsError(
-      'This [{]{2}[$] tag [}]{2} has an error$',
-      '''
-        This is a {{tag}}
-        This {{$ tag }} has an error
-        This one is {{ fine }}
-      '''
-    )
-
-  "Indicating the correct tag on the correct line":
-    throwsError(
-      "     [^]{10}$",
+      {
+        message: 'This [{]{2}[$] tag [}]{2} has an error$'
+        line: 2
+        character: 5
+        tag: '{{$ tag }}'
+      },
       '''
         This is a {{tag}}
         This {{$ tag }} has an error
