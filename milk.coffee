@@ -153,9 +153,12 @@ Parse = (template, delimiters = ['{{','}}'], sectionName = null, start = 0) ->
     # parsing where we intend it to), and loop.
     tagPattern.lastIndex = if pos? then pos else template.length
 
-  # When we've exhausted all of the matches for tagPattern, we'll still have a
-  # small portion of the template remaining.  We'll append it to the buffer,
-  # cache it, and return the buffer!
+  # We've finished parsing tags out of this template, so if we've still got a
+  # `sectionName`, someone left a section tag open.
+  throw parseError(start, "Unclosed tag '#{sectionName}'!") if sectionName?
+
+  # Since we may have a little extra content after the last tag, we'll append
+  # it to the buffer, cache it, and return the buffer!
   buffer.push(template[pos..])
   return TemplateCache[delimiters.join(' ')][template] = buffer
 
