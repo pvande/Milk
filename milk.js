@@ -17,7 +17,7 @@
     buffer = [];
     tagOpen = delimiters[0], tagClose = delimiters[1];
     BuildRegex = function() {
-      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(!)\\s*([\\s\\S]+?)\\s*|(=)\\s*([\\s\\S]+?)\\s*=|({)\\s*(\\w[\\S]*?)\\s*}|([^0-9a-zA-Z._!={]?)\\s*([\\w.][\\S]*?))\\s*" + tagClose + ")", "gm");
+      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(!)\\s*([\\s\\S]+?)|(=)\\s*([\\s\\S]+?)\\s*=|({)\\s*(\\w[\\S]*?)\\s*}|([^0-9a-zA-Z._!={]?)\\s*([\\w.][\\S]*?))\\s*" + tagClose + ")", "gm");
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = (section || {
@@ -264,6 +264,7 @@
     return Generate(Parse(template), data, partials, helpers, this.escape);
   };
   Milk = {
+    VERSION: '1.1.0',
     render: function() {
       return Render.apply(typeof exports != "undefined" && exports !== null ? exports : Milk, arguments);
     },
