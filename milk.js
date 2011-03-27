@@ -17,7 +17,7 @@
     buffer = [];
     tagOpen = delimiters[0], tagClose = delimiters[1];
     BuildRegex = function() {
-      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(=)\\s*(.+?)\\s*=|({)\\s*(.+?)\\s*}|([^0-9a-zA-Z._]?)\\s*([\\s\\S]+?))\\s*" + tagClose + ")", "gm");
+      return RegExp("([\\s\\S]*?)([" + ' ' + "\\t]*)(?:" + tagOpen + "\\s*(?:(!)\\s*([\\s\\S]+?)\\s*|(=)\\s*([\\s\\S]+?)\\s*=|({)\\s*(\\w[\\S]*?)\\s*}|([^0-9a-zA-Z._!={]?)\\s*([\\w.][\\S]*?))\\s*" + tagClose + ")", "gm");
     };
     tagPattern = BuildRegex();
     tagPattern.lastIndex = pos = (section || {
@@ -49,8 +49,8 @@
     };
     while (match = tagPattern.exec(template)) {
       _ref = match.slice(1, 3), content = _ref[0], whitespace = _ref[1];
-      type = match[3] || match[5] || match[7];
-      tag = match[4] || match[6] || match[8];
+      type = match[3] || match[5] || match[7] || match[9];
+      tag = match[4] || match[6] || match[8] || match[10];
       contentEnd = (pos + content.length) - 1;
       pos = tagPattern.lastIndex;
       isStandalone = (contentEnd === -1 || template.charAt(contentEnd) === '\n') && ((_ref2 = template.charAt(pos)) === void 0 || _ref2 === '' || _ref2 === '\r' || _ref2 === '\n');
@@ -193,14 +193,15 @@
                 case '&':
                 case '{':
                   if (value instanceof Function) {
-                    value = Build(value().toString());
+                    value = Build("" + (value()));
                   }
-                  return value.toString();
+                  return "" + value;
+                  break;
                 case '':
                   if (value instanceof Function) {
-                    value = Build(value().toString());
+                    value = Build("" + (value()));
                   }
-                  return Escape(value.toString());
+                  return Escape("" + value);
                 default:
                   throw "Unknown tag type -- " + type;
               }
