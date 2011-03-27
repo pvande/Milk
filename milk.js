@@ -31,6 +31,7 @@
       parsedLines = template.substr(0, errorPos).split('\n');
       lastLine = parsedLines[parsedLines.length - 1];
       lastTag = template.substr(contentEnd + 1, errorPos - contentEnd - 1);
+      console.log(lastTag);
       indent = new Array(lastLine.length - lastTag.length + 1).join(' ');
       carets = new Array(lastTag.length + 1).join('^');
       return message = [message, '', "Line " + parsedLines.length + ":", lastLine + template.substr(errorPos, endOfLine.lastIndex - errorPos), "" + indent + carets].join("\n");
@@ -106,7 +107,10 @@
         default:
           throw parseError(tagPattern.lastIndex, "Unknown tag type -- " + type);
       }
-      tagPattern.lastIndex = pos;
+      tagPattern.lastIndex = pos != null ? pos : template.length;
+    }
+    if (sectionName != null) {
+      throw parseError(start, "Unclosed tag '" + sectionName + "'!");
     }
     buffer.push(template.slice(pos));
     return TemplateCache[delimiters.join(' ')][template] = buffer;
