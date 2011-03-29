@@ -1,0 +1,87 @@
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>Milk Playground</title>
+    <script type="text/javascript" charset="utf-8" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+    <script type="text/javascript" charset="utf-8" src="http://methvin.com/splitter/splitter.js"></script>
+    <script type="text/javascript" charset="utf-8" src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+    <script type="text/javascript" charset="utf-8" src="./milk.js"></script>
+    <link rel="stylesheet" href="playground.css" type="text/css" media="screen" charset="utf-8">
+  </head>
+  <body onload="render()">
+    <h1>{{ Mustache Playground }}</h1>
+    <div id="split-vertical">
+      <div id="split-lateral">
+        <div style="height: 35%">
+          <div class="name">Data</div>
+          <div onkeyup="render()" id="data" contentEditable="true"></div>
+          <div id='data-err' class="error"></div>
+        </div>
+        <div>
+          <div class="name">Template</div>
+          <div onkeyup="render()" id="tmpl" contentEditable="true"></div>
+          <div id='tmpl-err' class="error"></div>
+        </div>
+      </div>
+      <div>
+        <div class="name">Result</div>
+        <div id="result" name="result"></div>
+      </div>
+    </div>
+    <script type="text/coffeescript" charset="utf-8">
+      $("#split-lateral").splitter({ type: 'h', minTop: 100, minBottom: 100, sizeTop: true })
+      $("#split-vertical").splitter({ type: 'v', minLeft: 200, minRight: 200, sizeRight: 350, anchorToWindow: true })
+
+      result  = $('#result')
+      data    = $('#data')
+      tmpl    = $('#tmpl')
+      dataErr = $('#data-err')
+      tmplErr = $('#tmpl-err')
+
+      data.text '''
+        header: "Colors"
+        list: [
+          { name: "red", current: true, url: "#Red", current: yes }
+          { name: "green", current: false, url: "#Green", current: no }
+          { name: "blue", current: false, url: "#Blue", current: no }
+        ]
+      '''
+
+      tmpl.text '''
+        <h1>{{header}}</h1>
+        {{#list.length}}
+          <ul>
+          {{#list}}
+            {{#current}}
+              <li><strong>{{name}}</strong></li>
+            {{/current}}
+            {{^current}}
+              <li>a href="{{url}}">{{name}}</a></li>
+            {{/current}}
+          {{/list}}
+          </ul>
+        {{/list.length}}
+        {{^list.length}}
+          <p>The list is empty.</p>
+        {{/list.length}}
+      '''
+
+      @render = ->
+        T = tmpl.html()
+
+        try
+          D = CoffeeScript.eval("return #{data.html().replace(/^\s*/, '')}")
+          dataErr.hide()
+        catch e
+          dataErr.html("#{e}")
+          dataErr.show()
+
+        try
+          result.html(Milk.render(T, D))
+          tmplErr.hide()
+        catch e
+          tmplErr.html("Line #{e.line}, column #{e.char}: #{e.error}")
+          tmplErr.show()
+    </script>
+  </body>
+</html>

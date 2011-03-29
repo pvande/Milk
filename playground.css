@@ -1,0 +1,68 @@
+body {
+  font-family: Monaco, Consolas, monospace;
+  font-size: 9pt;
+  background-color: white;
+  margin: 0;
+}
+:focus { outline: 0; }
+
+h1 {
+  font-family: monospace;
+  line-height: 1em;
+  padding: 10px;
+  text-align: right;
+  color: black;
+  margin-bottom: 0;
+}
+
+#split-vertical {
+  bottom: 0;
+  background-color: #4A9CB2;
+}
+
+#data, #tmpl, #result {
+  white-space: pre;
+  overflow: auto;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  top: 0;
+  right: 0;
+  padding: 5px;
+  background-color: white;
+}
+
+#data, #result { top: 3px; }
+
+.vsplitbar {
+  width: 3px;
+  background-color: #4A9CB2;
+}
+
+.hsplitbar {
+  height: 3px;
+  background-color: #4A9CB2;
+}
+
+.error {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background-color: #DA6F2B;
+  color: white;
+  border-top-left-radius: 10px;
+  padding: 5px 8px;
+  text-align: center;
+}
+
+.name {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #4A9CB2;
+  border-bottom-left-radius: 10px;
+  color: white;
+  padding: 5px 8px;
+  text-align: center;
+  z-index: 1;
+}
