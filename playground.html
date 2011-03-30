@@ -26,6 +26,7 @@
       <div>
         <div class="name">Result</div>
         <div id="result" name="result"></div>
+        <div class="permalink"><a id="link" href="">Permalink</a></div>
       </div>
     </div>
     <script type="text/coffeescript" charset="utf-8">
@@ -37,8 +38,13 @@
       tmpl    = $('#tmpl')
       dataErr = $('#data-err')
       tmplErr = $('#tmpl-err')
+      link    = $('#link')
 
-      data.val '''
+      if location.getParameter
+        data.val decodeURIComponent location.getParameter('data')
+        tmpl.val decodeURIComponent location.getParameter('tmpl')
+
+      data.val data.val() || '''
         header: "Colors"
         list: [
           { name: "red", current: true, url: "#Red", current: yes }
@@ -47,7 +53,7 @@
         ]
       '''
 
-      tmpl.val '''
+      tmpl.val tmpl.val() || '''
         <h1>{{header}}</h1>
         {{#list.length}}
           <ul>
@@ -69,9 +75,13 @@
       @render = ->
         T = tmpl.val()
 
+        link.attr href: location.origin + location.pathname + '?' +
+          'data=' + encodeURIComponent(data.val()) + '&' +
+          'tmpl=' + encodeURIComponent(tmpl.val())
+
         try
-          console.log "return do ->\n#{(data.val() || '{}').replace(/^/mg, ' ')}"
-          D = CoffeeScript.eval("return do ->\n#{(data.val() || '{}').replace(/^/mg, ' ')}")
+          D = (data.val() || '{}').replace(/^/mg, ' ')
+          D = CoffeeScript.eval("return do ->\n#{D}")
           dataErr.hide()
         catch e
           dataErr.html("#{e}")
