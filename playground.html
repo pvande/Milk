@@ -9,17 +9,17 @@
     <link rel="stylesheet" href="playground.css" type="text/css" media="screen" charset="utf-8">
   </head>
   <body onload="render()">
-    <h1>{{ Mustache Playground }}</h1>
+    <h1>{{! Mustache Playground }}</h1>
     <div id="split-vertical">
       <div id="split-lateral">
         <div style="height: 35%">
           <div class="name">Data</div>
-          <div onkeyup="render()" id="data" contentEditable="true"></div>
+          <textarea onkeyup="render()" id="data"></textarea>
           <div id='data-err' class="error"></div>
         </div>
         <div>
           <div class="name">Template</div>
-          <div onkeyup="render()" id="tmpl" contentEditable="true"></div>
+          <textarea onkeyup="render()" id="tmpl"></textarea>
           <div id='tmpl-err' class="error"></div>
         </div>
       </div>
@@ -38,7 +38,7 @@
       dataErr = $('#data-err')
       tmplErr = $('#tmpl-err')
 
-      data.text '''
+      data.val '''
         header: "Colors"
         list: [
           { name: "red", current: true, url: "#Red", current: yes }
@@ -47,7 +47,7 @@
         ]
       '''
 
-      tmpl.text '''
+      tmpl.val '''
         <h1>{{header}}</h1>
         {{#list.length}}
           <ul>
@@ -67,17 +67,18 @@
       '''
 
       @render = ->
-        T = tmpl.html()
+        T = tmpl.val()
 
         try
-          D = CoffeeScript.eval("return #{data.html().replace(/^\s*/, '')}")
+          console.log "return do ->\n#{(data.val() || '{}').replace(/^/mg, ' ')}"
+          D = CoffeeScript.eval("return do ->\n#{(data.val() || '{}').replace(/^/mg, ' ')}")
           dataErr.hide()
         catch e
           dataErr.html("#{e}")
           dataErr.show()
 
         try
-          result.html(Milk.render(T, D))
+          result.text(Milk.render(T, D))
           tmplErr.hide()
         catch e
           tmplErr.html("Line #{e.line}, column #{e.char}: #{e.error}")

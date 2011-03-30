@@ -21,6 +21,9 @@ h1 {
 }
 
 #data, #tmpl, #result {
+  font: inherit;
+  margin: 0;
+  border: 0;
   white-space: pre;
   overflow: auto;
   position: absolute;
