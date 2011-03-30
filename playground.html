@@ -44,8 +44,8 @@
         data.val decodeURIComponent location.getParameter('data')
         tmpl.val decodeURIComponent location.getParameter('tmpl')
       else
-        data.val(location.search.match(/data=(.*?)(?:&|$)/)[1] || '')
-        tmpl.val(location.search.match(/tmpl=(.*?)(?:&|$)/)[1] || '')
+        data.val decodeURIComponent(location.search.match(/data=(.*?)(?:&|$)/)[1] || '')
+        tmpl.val decodeURIComponent(location.search.match(/tmpl=(.*?)(?:&|$)/)[1] || '')
 
       data.val data.val() || '''
         header: "Colors"
