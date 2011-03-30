@@ -75,7 +75,8 @@
       @render = ->
         T = tmpl.val()
 
-        link.attr href: location.origin + location.pathname + '?' +
+        link.attr href: (location.origin || location.host) +
+          location.pathname + '?' +
           'data=' + encodeURIComponent(data.val()) + '&' +
           'tmpl=' + encodeURIComponent(tmpl.val())
 
