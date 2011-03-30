@@ -43,7 +43,7 @@
       if location.getParameter
         data.val decodeURIComponent location.getParameter('data')
         tmpl.val decodeURIComponent location.getParameter('tmpl')
-      else
+      else if location.search
         data.val decodeURIComponent(location.search.match(/data=(.*?)(?:&|$)/)[1] || '')
         tmpl.val decodeURIComponent(location.search.match(/tmpl=(.*?)(?:&|$)/)[1] || '')
 
