@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="playground.css" type="text/css" media="screen" charset="utf-8">
   </head>
   <body onload="render()">
-    <h1>{{! Mustache Playground }}</h1>
+    <h1><span></span>{{! Mustache Playground }}</h1>
     <div id="split-vertical">
       <div id="split-lateral">
         <div style="height: 35%">
@@ -50,9 +50,9 @@
       data.val data.val() || '''
         header: "Colors"
         list: [
-          { name: "red", current: true, url: "#Red", current: yes }
-          { name: "green", current: false, url: "#Green", current: no }
-          { name: "blue", current: false, url: "#Blue", current: no }
+          { name: "red",   url: "#Red",   current: yes }
+          { name: "green", url: "#Green", current: no  }
+          { name: "blue",  url: "#Blue",  current: no  }
         ]
       '''
 
