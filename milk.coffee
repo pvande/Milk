@@ -88,7 +88,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
                    template.charAt(pos) in [ undefined, '', '\r', '\n' ]
 
     # Append the static content to the buffer.
-    buffer.push content
+    buffer.push(do (content) -> -> content)
 
     # If we're dealing with a standalone non-interpolation tag, we should skip
     # over the newline immediately following the tag.  If we're not, we need
@@ -97,7 +97,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       pos += 1 if template.charAt(pos) == '\r'
       pos += 1 if template.charAt(pos) == '\n'
     else if whitespace
-      buffer.push(whitespace)
+      buffer.push(do (whitespace) -> -> whitespace)
       contentEnd += whitespace.length
       whitespace = ''
 
@@ -108,11 +108,11 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       when '!' then break
 
       # Interpolation tags only require the tag name.
-      when '', '&', '{' then buffer.push [ type, tag ]
+      when '', '&', '{' then buffer.push ((x) -> -> x)([ type, tag ])
 
       # Partial will require the tag name and any leading whitespace, which
       # will be used to indent the partial.
-      when '>' then buffer.push [ type, tag, whitespace ]
+      when '>' then buffer.push ((x) -> -> x)([ type, tag, whitespace ])
 
       # Sections and Inverted Sections make a recursive call to `Parse`,
       # starting immediately after the tag.  This call will continue to walk
@@ -128,7 +128,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
           name: tag, start: pos
           error: parseError(tagPattern.lastIndex, "Unclosed section '#{tag}'!")
         [tmpl, pos] = Parse(template, [tagOpen, tagClose], sectionInfo)
-        buffer.push [ type, tag, [[tagOpen, tagClose], tmpl] ]
+        buffer.push ((x) -> -> x)([ type, tag, [[tagOpen, tagClose], tmpl] ])
 
       when '/'
         unless section?
@@ -169,7 +169,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
 
   # Since we may have a little extra content after the last tag, we'll append
   # it to the buffer, cache it, and return the buffer!
-  buffer.push(template[pos..])
+  buffer.push(-> template[pos..])
   return TemplateCache[delimiters.join(' ')][template] = buffer
 
 #### Generating
@@ -183,7 +183,7 @@ Generate = (buffer, data, partials, context = [], Escape) ->
   Build = (tmpl, data, delims) ->
     Generate(Parse("#{tmpl}", delims), data, partials, [context...], Escape)
 
-  parts = for part in buffer
+  parts = for part in (part() for part in buffer)
     switch typeof part
 
       # Strings in the buffer can be used literally.
