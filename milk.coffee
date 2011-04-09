@@ -88,7 +88,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
                    template.charAt(pos) in [ undefined, '', '\r', '\n' ]
 
     # Append the static content to the buffer.
-    buffer.push(do (content) -> -> content)
+    buffer.push do (content) -> -> content
 
     # If we're dealing with a standalone non-interpolation tag, we should skip
     # over the newline immediately following the tag.  If we're not, we need
@@ -107,8 +107,21 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       # Comment tags should simply be ignored.
       when '!' then break
 
-      # Interpolation tags only require the tag name.
-      when '', '&', '{' then buffer.push ((x) -> -> x)([ type, tag ])
+      # Unescaped interpolations should be returned directly; Escaped
+      # interpolations will need to be HTML escaped for safety.
+      # For lambdas that we receive, we'll simply call them and compile
+      # whatever they return.
+      when '', '&', '{'
+        buildInterpolationTag = (type, tag) ->
+          return (context) ->
+            value = Find(tag, context)
+            if value instanceof Function
+              value = (p.call(this, context) for p in Parse("#{value()}"))
+              value = value.join('')
+            unless type
+              value = @escape("#{value}")
+            return "#{value}"
+        buffer.push buildInterpolationTag(type, tag)
 
       # Partial will require the tag name and any leading whitespace, which
       # will be used to indent the partial.
@@ -181,9 +194,9 @@ Generate = (buffer, data, partials, context = [], Escape) ->
   context.push data
 
   Build = (tmpl, data, delims) ->
-    Generate(Parse("#{tmpl}", delims), data, partials, [context...], Escape)
+    Generate.call(this, Parse("#{tmpl}", delims), data, partials, [context...], Escape)
 
-  parts = for part in (part() for part in buffer)
+  parts = for part in (part.call(this, context) for part in buffer)
     switch typeof part
 
       # Strings in the buffer can be used literally.
@@ -205,7 +218,7 @@ Generate = (buffer, data, partials, context = [], Escape) ->
           when '>'
             partial = partials(name).toString()
             partial = partial.replace(/^(?=.)/gm, data) if data
-            Build(partial)
+            Build.call(this, partial)
 
           # Sections will render when the name specified retreives a truthy
           # value from the context stack, and should be repeated for each
@@ -216,11 +229,11 @@ Generate = (buffer, data, partials, context = [], Escape) ->
             [delims, tmpl] = data
             switch (value ||= []).constructor
               when Array
-                (Build(tmpl, v, delims) for v in value).join('')
+                (Build.call(this, tmpl, v, delims) for v in value).join('')
               when Function
-                Build(value(tmpl), null, delims)
+                Build.call(this, value(tmpl), null, delims)
               else
-                Build(tmpl, value, delims)
+                Build.call(this, tmpl, value, delims)
 
           # Inverted Sections render under almost opposite conditions: their
           # contents will only be rendered whene the retrieved value is falsey,
@@ -228,18 +241,7 @@ Generate = (buffer, data, partials, context = [], Escape) ->
           when '^'
             [delims, tmpl] = data
             empty = (value ||= []) instanceof Array and value.length is 0
-            if empty then Build(tmpl, null, delims) else ''
-
-          # Unescaped interpolations should be returned directly; Escaped
-          # interpolations will need to be HTML escaped for safety.
-          # For lambdas that we receive, we'll simply call them and compile
-          # whatever they return.
-          when '&', '{' 
-            value = Build("#{value()}") if value instanceof Function
-            "#{value}"
-          when ''
-            value = Build("#{value()}") if value instanceof Function
-            Escape("#{value}")
+            if empty then Build.call(this, tmpl, null, delims) else ''
 
           else
             throw "Unknown tag type -- #{type}"
@@ -305,7 +307,7 @@ Render = (template, data, partials = null) ->
       throw "Unknown partial '#{name}'!" unless name of partials
       Find(name, [partials])
 
-  return Generate(Parse(template), data, partials, helpers, @escape)
+  return Generate.call(this, Parse(template), data, partials, helpers, @escape)
 
 Milk =
   VERSION: '1.1.0'
