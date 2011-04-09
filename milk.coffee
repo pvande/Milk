@@ -112,16 +112,15 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       # For lambdas that we receive, we'll simply call them and compile
       # whatever they return.
       when '', '&', '{'
-        buildInterpolationTag = (type, tag) ->
+        buildInterpolationTag = (name, is_unescaped) ->
           return (context) ->
-            value = Find(tag, context)
+            value = Find(name, context)
             if value instanceof Function
-              value = (p.call(this, context) for p in Parse("#{value()}"))
+              value = (p.apply(this, arguments) for p in Parse("#{value()}"))
               value = value.join('')
-            unless type
-              value = @escape("#{value}")
+            value = @escape("#{value}") unless is_unescaped
             return "#{value}"
-        buffer.push buildInterpolationTag(type, tag)
+        buffer.push buildInterpolationTag(tag, type)
 
       # Partial will require the tag name and any leading whitespace, which
       # will be used to indent the partial.
