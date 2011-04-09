@@ -140,7 +140,21 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
           name: tag, start: pos
           error: parseError(tagPattern.lastIndex, "Unclosed section '#{tag}'!")
         [tmpl, pos] = Parse(template, [tagOpen, tagClose], sectionInfo)
-        buffer.push ((x) -> -> x)([ type, tag, [[tagOpen, tagClose], tmpl] ])
+
+        # Inverted Sections render under almost opposite conditions: their
+        # contents will only be rendered whene the retrieved value is falsey,
+        # or is an empty array.
+        buildInvertedSectionTag = (name, delims, raw) ->
+          return (context) ->
+            value = Find(name, context) || []
+            value = [1] unless value instanceof Array
+            value = if value.length is 0 then Parse(raw, delims) else []
+            return (p.apply(this, arguments) for p in value).join('')
+
+        if type == '^'
+          buffer.push buildInvertedSectionTag(tag, [tagOpen, tagClose], tmpl)
+        else
+          buffer.push ((x) -> -> x)([ type, tag, [[tagOpen, tagClose], tmpl] ])
 
       when '/'
         unless section?
@@ -233,14 +247,6 @@ Generate = (buffer, data, partials, context = [], Escape) ->
                 Build.call(this, value(tmpl), null, delims)
               else
                 Build.call(this, tmpl, value, delims)
-
-          # Inverted Sections render under almost opposite conditions: their
-          # contents will only be rendered whene the retrieved value is falsey,
-          # or is an empty array.
-          when '^'
-            [delims, tmpl] = data
-            empty = (value ||= []) instanceof Array and value.length is 0
-            if empty then Build.call(this, tmpl, null, delims) else ''
 
           else
             throw "Unknown tag type -- #{type}"
