@@ -122,9 +122,21 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
             return "#{value}"
         buffer.push buildInterpolationTag(tag, type)
 
-      # Partial will require the tag name and any leading whitespace, which
-      # will be used to indent the partial.
-      when '>' then buffer.push ((x) -> -> x)([ type, tag, whitespace ])
+      # Partials will be looked up by name (in this case, from the given
+      # hash) and built.  (Parsing the partial here means that we don't
+      # have to worry about recursive partials.)  If the partial tag was
+      # standalone and indented, the resulting content should be similarly
+      # indented.
+      when '>'
+        buildPartialTag = (name, indentation) ->
+          return (context, partials) ->
+            partial = partials(name).toString()
+            partial = partial.replace(/^(?=.)/gm, indentation) if indentation
+            partial = (p.apply(this, arguments) for p in Parse(partial))
+            partial = partial.join('')
+            return partial
+
+        buffer.push buildPartialTag(tag, whitespace)
 
       # Sections and Inverted Sections make a recursive call to `Parse`,
       # starting immediately after the tag.  This call will continue to walk
@@ -141,6 +153,26 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
           error: parseError(tagPattern.lastIndex, "Unclosed section '#{tag}'!")
         [tmpl, pos] = Parse(template, [tagOpen, tagClose], sectionInfo)
 
+        # Sections will render when the name specified retreives a truthy
+        # value from the context stack, and should be repeated for each
+        # element if the value is an array.  If the value is a function, it
+        # should be called with the raw section template, and the return
+        # value should be built.
+        buildSectionTag = (name, delims, raw) ->
+          return (context) ->
+            value = Find(name, context) || []
+            tmpl  = if value instanceof Function then value(raw) else raw
+            value = [value] unless value instanceof Array
+            parsed = Parse(tmpl || '', delims)
+
+            context.push(value)
+            result = for v in value
+              context[context.length - 1] = v
+              (p.apply(this, arguments) for p in parsed).join('')
+            context.pop()
+
+            return result.join('')
+
         # Inverted Sections render under almost opposite conditions: their
         # contents will only be rendered whene the retrieved value is falsey,
         # or is an empty array.
@@ -154,7 +186,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
         if type == '^'
           buffer.push buildInvertedSectionTag(tag, [tagOpen, tagClose], tmpl)
         else
-          buffer.push ((x) -> -> x)([ type, tag, [[tagOpen, tagClose], tmpl] ])
+          buffer.push buildSectionTag(tag, [tagOpen, tagClose], tmpl)
 
       when '/'
         unless section?
@@ -206,51 +238,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
 Generate = (buffer, data, partials, context = [], Escape) ->
   context.push data
 
-  Build = (tmpl, data, delims) ->
-    Generate.call(this, Parse("#{tmpl}", delims), data, partials, [context...], Escape)
-
-  parts = for part in (part.call(this, context) for part in buffer)
-    switch typeof part
-
-      # Strings in the buffer can be used literally.
-      when 'string' then part
-
-      # Parsed tags (which will be Arrays in the given buffer) will need to be
-      # evaluated against the context stack.
-      else
-        [type, name, data] = part
-        value = Find(name, context) unless type is '>'
-
-        switch type
-
-          # Partials will be looked up by name (in this case, from the given
-          # hash) and built.  (Parsing the partial here means that we don't
-          # have to worry about recursive partials.)  If the partial tag was
-          # standalone and indented, the resulting content should be similarly
-          # indented.
-          when '>'
-            partial = partials(name).toString()
-            partial = partial.replace(/^(?=.)/gm, data) if data
-            Build.call(this, partial)
-
-          # Sections will render when the name specified retreives a truthy
-          # value from the context stack, and should be repeated for each
-          # element if the value is an array.  If the value is a function, it
-          # should be called with the raw section template, and the return
-          # value should be built.
-          when '#'
-            [delims, tmpl] = data
-            switch (value ||= []).constructor
-              when Array
-                (Build.call(this, tmpl, v, delims) for v in value).join('')
-              when Function
-                Build.call(this, value(tmpl), null, delims)
-              else
-                Build.call(this, tmpl, value, delims)
-
-          else
-            throw "Unknown tag type -- #{type}"
-
+  parts = (part.call(this, context, partials) for part in buffer)
   # The generated result is the concatenation of all these parts.
   return parts.join('')
 
