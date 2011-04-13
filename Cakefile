@@ -9,21 +9,21 @@ task 'benchmark', 'Run a simple benchmark of Milk', ->
   Milk = require 'milk'
   tmpl = """
          <h1>{{header}}</h1>
-         {{#list}}
+         {{#list.length}}
            <ul>
-           {{#item}}
+           {{#list}}
              {{#current}}
                <li><strong>{{name}}</strong></li>
              {{/current}}
-             {{#link}}
-               <li><a href="{{url}}">{{name}}</a></li>
-             {{/link}}
-           {{/item}}
+             {{^current}}
+               <li>a href="{{url}}">{{name}}</a></li>
+             {{/current}}
+           {{/list}}
            </ul>
-         {{/list}}
-         {{#empty}}
+         {{/list.length}}
+         {{^list.length}}
            <p>The list is empty.</p>
-         {{/empty}}
+         {{/list.length}}
          """
 
   start = new Date()
@@ -32,15 +32,12 @@ task 'benchmark', 'Run a simple benchmark of Milk', ->
 
   for i in [0..1000000]
     Milk.render tmpl,
-      header: () -> "Colors"
-      item: [
-        { name: "red", current: true, url: "#Red" }
-        { name: "green", current: false, url: "#Green" }
-        { name: "blue", current: false, url: "#Blue" }
+      header: "Colors"
+      list: [
+        { name: "red",   url: "#Red",   current: yes }
+        { name: "green", url: "#Green", current: no  }
+        { name: "blue",  url: "#Blue",  current: no  }
       ]
-      link:  -> this["current"] != true
-      list:  -> this.item.length != 0
-      empty: -> this.item.length == 0
 
 task 'build', 'Rebuilds all public web resources', ->
   invoke('build:js')
