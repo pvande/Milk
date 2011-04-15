@@ -54,7 +54,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
   # messages for the user.  We'll build a message with the line number, the
   # template line in question, and the approximate position of the error within
   # that line.
-  parseError = (pos, message) ->
+  parseError = (pos, msg) ->
     (endOfLine = /$/gm).lastIndex = pos
     endOfLine.exec(template)
 
@@ -70,8 +70,8 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
 
     error = new Error()
     error[key] = e[key] for key of e =
-      message: "#{message}\n\nLine #{lineNo}:\n#{lastLine}\n#{indent}#{carets}"
-      error: message, line: lineNo, char: indent.length, tag: lastTag
+      "message": "#{msg}\n\nLine #{lineNo}:\n#{lastLine}\n#{indent}#{carets}"
+      "error": msg, "line": lineNo, "char": indent.length, "tag": lastTag
     return error
 
   # As we start matching things, we'll pull out the relevant captures, indices,
@@ -308,7 +308,7 @@ Milk =
   helpers: []
   escape: (value) ->
     entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
-    return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")
+    return value.replace(/[&"<>]/g, (ch) -> "&#{ entities[ch] };")
 
 if exports?
   exports[key] = Milk[key] for key of Milk
