@@ -18,7 +18,7 @@ suite.addBatch
     topic: ->
       @escape = Milk.escape
       Milk.escape = (str) -> str.split('').reverse().join('')
-      return Milk.render
+      return -> Milk.render(arguments...)
 
     teardown: ->
       Milk.escape = @escape

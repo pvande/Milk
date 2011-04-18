@@ -9,7 +9,7 @@ suite.addBatch
   "Providing an object to Milk.helpers":
     topic: ->
       Milk.helpers = { key: 'helper', helper: 'helper' }
-      return Milk.render
+      return -> Milk.render(arguments...)
 
     teardown: -> Milk.helpers = []
 
@@ -25,7 +25,7 @@ suite.addBatch
   "Providing an array to Milk.helpers":
     topic: ->
       Milk.helpers = [{ key: 'helper', helper: 'helper' }, { helper: 'two' }]
-      return Milk.render
+      return -> Milk.render(arguments...)
 
     teardown: -> Milk.helpers = []
 
