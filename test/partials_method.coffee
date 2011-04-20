@@ -10,7 +10,7 @@ suite.addBatch
     topic: ->
       @partials = Milk.partials
       Milk.partials = (str) -> str.split('').reverse().join('')
-      return Milk.render
+      return -> Milk.render(arguments...)
 
     teardown: ->
       Milk.partials = @partials

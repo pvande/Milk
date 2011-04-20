@@ -1,39 +1,57 @@
 # Milk is a simple, fast way to get more Mustache into your CoffeeScript and
 # Javascript.
 #
-# Plenty of good resources for Mustache can be found
-# [here](mustache.github.com), so little will be said about the templating
-# language itself here.
-#
-# Template rendering is broken into a couple of distinct phases: deconstructing
-# a parse tree, and generating the final result.
-
-#### Parsing
-
-# In the simplest case, we'll simply need a template string to parse.  If we've
-# parsed this template before, the cache will let us bail early.  We do need to
-# remember to take the tag delimiters into account, however -- different parse
-# trees can exist for the same raw template!
-
 # Mustache templates are reasonably simple -- plain text templates are
 # sprinkled with "tags", which are (by default) a pair of curly braces
-# surrounding some bit of content.
-
+# surrounding some bit of content. A good resource for Mustache can be found
+# [here](mustache.github.com).
 TemplateCache = {}
 
+# Tags used for working with data get their data by looking up a name in a
+# context stack. This name corresponds to a key in a hash, and the stack is
+# searched top to bottom for an object with given key. Dots in names are
+# special: a single dot ('.') is "top of stack", and dotted names like 'a.b.c'
+# do a chained lookups.
+Find = (name, stack, value = null) ->
+  return stack[stack.length - 1] if name == '.'
+  [name, parts...] = name.split(/\./)
+  for i in [stack.length - 1...-1]
+    continue unless stack[i]?
+    continue unless typeof stack[i] == 'object' and name of (ctx = stack[i])
+    value = ctx[name]
+    break
+
+  value = Find(part, [value]) for part in parts
+
+  # If we find a function in the stack, we'll treat it as a method, and call it
+  # with `this` bound to the element it came from. If a method returns a
+  # function, we treat it as a lambda, which doesn't have a bound `this`.
+  if value instanceof Function
+    value = do (value) -> ->
+      val = value.apply(ctx, arguments)
+      return (val instanceof Function) and val.apply(null, arguments) or val
+
+  # Null values will be coerced to the empty string.
+  return value
+
+# Parsed templates are expanded by simply calling each function in turn.
+Expand = (obj, tmpl, args...) -> (f.call(obj, args...) for f in tmpl).join('')
+
+# For parsing, we'll basically need a template string to parse. We do need to
+# remember to take the tag delimiters into account for the cache -- different
+# parse trees can exist for the same template string!
 Parse = (template, delimiters = ['{{','}}'], section = null) ->
   cache = (TemplateCache[delimiters.join(' ')] ||= {})
   return cache[template] if template of cache
 
   buffer = []
 
-  # We're going to take the easy route this time, and just match away large
-  # parts of the template with a regular expression.  This isn't likely the
-  # fastest approach, but it is fairly simple.
-  # Since the tag delimiters may change over time, we'll need to be able to
-  # rebuild the regex when they change.
-  [tagOpen, tagClose] = delimiters
+  # We'll use a regular expression to handle tag discovery. A proper parser
+  # might be faster, but this is simpler, and certainly fast enough for now.
+  # Since the tag delimiters may change over time, we'll want to rebuild the
+  # regex when they change.
   BuildRegex = ->
+    [tagOpen, tagClose] = delimiters
     return ///
       ([\s\S]*?)                # Capture the pre-tag content
       ([#{' '}\t]*)             # Capture the pre-tag whitespace
@@ -50,10 +68,8 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
   tagPattern = BuildRegex()
   tagPattern.lastIndex = pos = (section || { start: 0 }).start
 
-  # In case we run into problems, we need to be able to provide good diagnostic
-  # messages for the user.  We'll build a message with the line number, the
-  # template line in question, and the approximate position of the error within
-  # that line.
+  # Useful errors should always be prefered - we should compile as much
+  # relevant information as possible.
   parseError = (pos, msg) ->
     (endOfLine = /$/gm).lastIndex = pos
     endOfLine.exec(template)
@@ -74,8 +90,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
       "error": msg, "line": lineNo, "char": indent.length, "tag": lastTag
     return error
 
-  # As we start matching things, we'll pull out the relevant captures, indices,
-  # and deterimine whether the tag is standalone.
+  # As we start matching things, let's pull out our captures and build indices.
   while match = tagPattern.exec(template)
     [content, whitespace] = match[1..2]
     type = match[3] || match[5] || match[7] || match[9]
@@ -84,237 +99,161 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
     contentEnd = (pos + content.length) - 1
     pos        = tagPattern.lastIndex
 
+    # Standalone tags are tags on lines without any non-whitespace characters.
     isStandalone = (contentEnd == -1 or template.charAt(contentEnd) == '\n') &&
                    template.charAt(pos) in [ undefined, '', '\r', '\n' ]
 
-    # Append the static content to the buffer.
-    buffer.push content
+    # We should just add static content to the buffer.
+    buffer.push(do (content) -> -> content) if content
 
-    # If we're dealing with a standalone non-interpolation tag, we should skip
-    # over the newline immediately following the tag.  If we're not, we need
-    # give back the whitespace we've been holding hostage.
+    # If we're dealing with a standalone tag that's not interpolation, we
+    # should consume the newline immediately following the tag. If we're not,
+    # we need to buffer the whitespace we captured earlier.
     if isStandalone and type not in ['', '&', '{']
       pos += 1 if template.charAt(pos) == '\r'
       pos += 1 if template.charAt(pos) == '\n'
     else if whitespace
-      buffer.push(whitespace)
+      buffer.push(do (whitespace) -> -> whitespace)
       contentEnd += whitespace.length
       whitespace = ''
 
-    # Next, we'll handle the tag itself:
+    # Now we'll handle the tag itself:
     switch type
 
       # Comment tags should simply be ignored.
       when '!' then break
 
-      # Interpolation tags only require the tag name.
-      when '', '&', '{' then buffer.push [ type, tag ]
+      # Interpolations are handled by finding the value in the context stack,
+      # calling and rendering lambdas, and escaping the value if appropriate.
+      when '', '&', '{'
+        buildInterpolationTag = (name, is_unescaped) ->
+          return (context) ->
+            if (value = Find(name, context) ? '') instanceof Function
+              value = Expand(this, Parse("#{value()}"), arguments...)
+            value = @escape("#{value}") unless is_unescaped
+            return "#{value}"
+        buffer.push(buildInterpolationTag(tag, type))
 
-      # Partial will require the tag name and any leading whitespace, which
-      # will be used to indent the partial.
-      when '>' then buffer.push [ type, tag, whitespace ]
+      # Partial data is looked up lazily by the given function, indented as
+      # appropriate, and then rendered.
+      when '>'
+        buildPartialTag = (name, indentation) ->
+          return (context, partials) ->
+            partial = partials(name).toString()
+            partial = partial.replace(/^(?=.)/gm, indentation) if indentation
+            return Expand(this, Parse(partial), arguments...)
+        buffer.push(buildPartialTag(tag, whitespace))
 
-      # Sections and Inverted Sections make a recursive call to `Parse`,
-      # starting immediately after the tag.  This call will continue to walk
-      # through the template until it reaches an End Section tag, when it will
-      # return the subtemplate it's parsed (and cached!) and the index after
-      # the End Section tag.  We'll save the tag name, current delimiters, and
-      # the subtemplate string.  We also pass an error through to the `Parse`
-      # call -- sort of a "tell the wife and kids I love 'em" moment, really.
-      # (It's just more convenient to build the error here since we already
-      # have all the context we need.)
+      # Sections and Inverted Sections make a recursive parsing pass, allowing
+      # us to use the call stack to handle section parsing. This will go until
+      # it reaches the matching End Section tag, when it will return the
+      # (cached!) template it parsed, along with the index it stopped at.
       when '#', '^'
         sectionInfo =
           name: tag, start: pos
           error: parseError(tagPattern.lastIndex, "Unclosed section '#{tag}'!")
-        [tmpl, pos] = Parse(template, [tagOpen, tagClose], sectionInfo)
-        buffer.push [ type, tag, [[tagOpen, tagClose], tmpl] ]
+        [tmpl, pos] = Parse(template, delimiters, sectionInfo)
 
+        # Sections are rendered by finding the value in the context stack,
+        # coercing it into an array (unless the value is falsey), and rendering
+        # the template with each element of the array taking a turn atop the
+        # context stack. If the value was a function, the template is filtered
+        # through it before rendering.
+        sectionInfo['#'] = buildSectionTag = (name, delims, raw) ->
+          return (context) ->
+            value = Find(name, context) || []
+            tmpl  = if value instanceof Function then value(raw) else raw
+            value = [value] unless value instanceof Array
+            parsed = Parse(tmpl || '', delims)
+
+            context.push(value)
+            result = for v in value
+              context[context.length - 1] = v
+              Expand(this, parsed, arguments...)
+            context.pop()
+
+            return result.join('')
+
+        # Inverted Sections render under almost opposite conditions: their
+        # contents will only be rendered when the retrieved value is either
+        # falsey or an empty array.
+        sectionInfo['^'] = buildInvertedSectionTag = (name, delims, raw) ->
+          return (context) ->
+            value = Find(name, context) || []
+            value = [1] unless value instanceof Array
+            value = if value.length is 0 then Parse(raw, delims) else []
+            return Expand(this, value, arguments...)
+
+        buffer.push(sectionInfo[type](tag, delimiters, tmpl))
+
+      # When the parser encounters an End Section tag, it runs a couple of
+      # quick sanity checks, then returns control back to its caller.
       when '/'
         unless section?
           error = "End Section tag '#{tag}' found, but not in section!"
-        else
-          if tag != (name = section.name)
-            error = "End Section tag closes '#{tag}'; expected '#{name}'!"
+        else if tag != (name = section.name)
+          error = "End Section tag closes '#{tag}'; expected '#{name}'!"
         throw parseError(tagPattern.lastIndex, error) if error
 
         template = template[section.start..contentEnd]
-        TemplateCache[delimiters.join(' ')][template] = buffer
+        cache[template] = buffer
         return [template, pos]
 
-      # The Set Delimiters tag doesn't actually generate output, but instead
-      # changes the tagPattern that the parser uses.  All delimiters need to be
-      # regex escaped for safety.
+      # The Set Delimiters tag needs to update the delimiters after some error
+      # checking, and rebuild the regular expression we're using to match tags.
       when '='
-        delims = tag.split(/\s+/)
-
-        unless delims.length == 2
+        unless (delimiters = tag.split(/\s+/)).length == 2
           error = "Set Delimiters tags should have two and only two values!"
         throw parseError(tagPattern.lastIndex, error) if error
 
-        [tagOpen, tagClose] = for delim in delims
-          delim.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&")
+        escape     = /[-[\]{}()*+?.,\\^$|#]/g
+        delimiters = (d.replace(escape, "\\$&") for d in delimiters)
         tagPattern = BuildRegex()
 
+      # Any other tag type is probably a typo.
       else
         throw parseError(tagPattern.lastIndex, "Unknown tag type -- #{type}")
 
-    # And finally, we'll advance the tagPattern's lastIndex (so that it resumes
-    # parsing where we intend it to), and loop.
+    # Now that we've finished with this tag, we prepare to parse the next one!
     tagPattern.lastIndex = if pos? then pos else template.length
 
-  # We've finished parsing tags out of this template, so if we've still got a
-  # `section`, someone left a section tag open.
+  # At this point, we've parsed all the tags.  If we've still got a `section`,
+  # someone left a section tag open.
   throw section.error if section?
 
-  # Since we may have a little extra content after the last tag, we'll append
-  # it to the buffer, cache it, and return the buffer!
-  buffer.push(template[pos..])
-  return TemplateCache[delimiters.join(' ')][template] = buffer
+  # All the tags is not all the content; if there's anything left over, append
+  # it to the buffer.  Then we'll cache the buffer and return it!
+  buffer.push(-> template[pos..]) unless template.length == pos
+  return cache[template] = buffer
 
-#### Generating
+# ### Public API
 
-# Once we have a parse tree, transforming it back into a full template should
-# be fairly straightforward.  We start by building a context stack, which data
-# will be looked up from.
-Generate = (buffer, data, partials, context = [], Escape) ->
-  context.push data
-
-  Build = (tmpl, data, delims) ->
-    Generate(Parse("#{tmpl}", delims), data, partials, [context...], Escape)
-
-  parts = for part in buffer
-    switch typeof part
-
-      # Strings in the buffer can be used literally.
-      when 'string' then part
-
-      # Parsed tags (which will be Arrays in the given buffer) will need to be
-      # evaluated against the context stack.
-      else
-        [type, name, data] = part
-        value = Find(name, context) unless type is '>'
-
-        switch type
-
-          # Partials will be looked up by name (in this case, from the given
-          # hash) and built.  (Parsing the partial here means that we don't
-          # have to worry about recursive partials.)  If the partial tag was
-          # standalone and indented, the resulting content should be similarly
-          # indented.
-          when '>'
-            partial = partials(name).toString()
-            partial = partial.replace(/^(?=.)/gm, data) if data
-            Build(partial)
-
-          # Sections will render when the name specified retreives a truthy
-          # value from the context stack, and should be repeated for each
-          # element if the value is an array.  If the value is a function, it
-          # should be called with the raw section template, and the return
-          # value should be built.
-          when '#'
-            [delims, tmpl] = data
-            switch (value ||= []).constructor
-              when Array
-                (Build(tmpl, v, delims) for v in value).join('')
-              when Function
-                Build(value(tmpl), null, delims)
-              else
-                Build(tmpl, value, delims)
-
-          # Inverted Sections render under almost opposite conditions: their
-          # contents will only be rendered whene the retrieved value is falsey,
-          # or is an empty array.
-          when '^'
-            [delims, tmpl] = data
-            empty = (value ||= []) instanceof Array and value.length is 0
-            if empty then Build(tmpl, null, delims) else ''
-
-          # Unescaped interpolations should be returned directly; Escaped
-          # interpolations will need to be HTML escaped for safety.
-          # For lambdas that we receive, we'll simply call them and compile
-          # whatever they return.
-          when '&', '{' 
-            value = Build("#{value()}") if value instanceof Function
-            "#{value}"
-          when ''
-            value = Build("#{value()}") if value instanceof Function
-            Escape("#{value}")
-
-          else
-            throw "Unknown tag type -- #{type}"
-
-  # The generated result is the concatenation of all these parts.
-  return parts.join('')
-
-#### Helpers
-
-# `Find` will walk the context stack from top to bottom, looking for an element
-# with the given name.  '.' is a special name, representing the element on the
-# top of the stack, and dotted names perform chained resolutions.
-Find = (name, stack) ->
-  return stack[stack.length - 1] if name == '.'
-  [name, parts...] = name.split(/\./)
-  value = ''
-  for i in [stack.length - 1...-1]
-    continue unless stack[i]?
-    continue unless typeof stack[i] == 'object' and name of (ctx = stack[i])
-    value = ctx[name]
-    break
-
-  value = Find(part, [value]) for part in parts
-
-  # If the value is a function, it will be treated like an object method;
-  # we'll call it, and use its return value as the new value.  Object methods
-  # being used for sections receive the raw section content, and automatically
-  # render the returned values against the current context.
-  # If the result is also a function, we'll treat that as an unbound lambda.
-  # Lambdas are treated as object methods, except that `this` is not bound.
-  if value instanceof Function
-    value = do (value) ->
-      (tmpl) ->
-        val = value.apply(ctx, [tmpl])
-        return (val instanceof Function) and val(tmpl) or val
-
-  # Null values will be coerced to the empty string.
-  return value ? ''
-
-#### Exports
-
-# In CommonJS-based environments, Milk will export both a `render` function
-# and a function `escape` for doing basic HTML escaping.
-# In browsers, and other non-CommonJS environments, the object `Milk` will be
-# exported to the global namespace, containing the same methods.
-#
-# The `Milk` export also contains a special key, `Milk.helpers`.  Any object
-# (or every object of an array) assigned to this key will be accessible on the
-# bottom of the context stack, allowing for common behavior (e.g. markup,
-# highlighting, or internationalization) to be made "globally" available to
-# the rendering engine.
-#
-# All environments presently support only synchronous rendering of in-memory
-# templates, partials, and data.
-#
-# Happy hacking!
-Render = (template, data, partials = null) ->
-  helpers = if @helpers instanceof Array then [@helpers...] else [@helpers]
-
-  partials ||= @partials || {}
-  unless partials instanceof Function
-    partials = do (partials) -> (name) ->
-      throw "Unknown partial '#{name}'!" unless name of partials
-      Find(name, [partials])
-
-  return Generate(Parse(template), data, partials, helpers, @escape)
-
+# The exported object (globally `Milk` in browsers) forms Milk's public API:
 Milk =
   VERSION: '1.1.0'
-  render: -> Render.apply(exports ? Milk, arguments)
-  helpers: []
+  # Helpers are a form of context, implicitly on the bottom of the stack. This
+  # is a global value, and may be either an object or an array.
+  helpers:  []
+  # Partials may also be provided globally.
+  partials: null
+  # The `escape` method performs basic content escaping, and may be either
+  # called or overridden with an alternate escaping mechanism.
   escape: (value) ->
     entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
     return value.replace(/[&"<>]/g, (ch) -> "&#{ entities[ch] };")
+  # Rendering is simple: given a template and some data, it populates the
+  # template. If your template uses Partial Tags, you may also supply a hash or
+  # a function, or simply override `Milk.partials`. There is no Step Three.
+  render: (template, data, partials = null) ->
+    unless (partials ||= @partials || {}) instanceof Function
+      partials = do (partials) -> (name) ->
+        throw "Unknown partial '#{name}'!" unless name of partials
+        return Find(name, [partials])
 
+    context = if @helpers instanceof Array then @helpers else [@helpers]
+    return Expand(this, Parse(template), context.concat([data]), partials)
+
+# Happy hacking!
 if exports?
   exports[key] = Milk[key] for key of Milk
 else
