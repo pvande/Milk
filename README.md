@@ -99,7 +99,7 @@ Milk does, or you can override it to change the behavior of escaped tags.
 ### VERSION
 
 ``` javascript
-  Milk.VERSION  // => '1.1.0'
+  Milk.VERSION  // => '1.2.0'
 ```
 
 For when you absolutely must know what version of the library you're running.

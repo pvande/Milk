@@ -230,7 +230,7 @@ Parse = (template, delimiters = ['{{','}}'], section = null) ->
 
 # The exported object (globally `Milk` in browsers) forms Milk's public API:
 Milk =
-  VERSION: '1.1.0'
+  VERSION: '1.2.0'
   # Helpers are a form of context, implicitly on the bottom of the stack. This
   # is a global value, and may be either an object or an array.
   helpers:  []
