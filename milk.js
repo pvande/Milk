@@ -23,7 +23,7 @@
     tagPattern.lastIndex = pos = (section || {
       start: 0
     }).start;
-    parseError = function(pos, message) {
+    parseError = function(pos, msg) {
       var carets, e, endOfLine, error, indent, key, lastLine, lastTag, lineNo, parsedLines, tagStart;
       (endOfLine = /$/gm).lastIndex = pos;
       endOfLine.exec(template);
@@ -37,11 +37,11 @@
       lastLine = lastLine + template.substr(pos, endOfLine.lastIndex - pos);
       error = new Error();
       for (key in e = {
-        message: "" + message + "\n\nLine " + lineNo + ":\n" + lastLine + "\n" + indent + carets,
-        error: message,
-        line: lineNo,
-        char: indent.length,
-        tag: lastTag
+        "message": "" + msg + "\n\nLine " + lineNo + ":\n" + lastLine + "\n" + indent + carets,
+        "error": msg,
+        "line": lineNo,
+        "char": indent.length,
+        "tag": lastTag
       }) {
         error[key] = e[key];
       }
@@ -277,8 +277,8 @@
         '<': 'lt',
         '>': 'gt'
       };
-      return value.replace(/[&"<>]/g, function(char) {
-        return "&" + entities[char] + ";";
+      return value.replace(/[&"<>]/g, function(sym) {
+        return "&" + entities[sym] + ";";
       });
     }
   };
