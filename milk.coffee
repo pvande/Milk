@@ -308,7 +308,7 @@ Render = (template, data, partials = null) ->
   return Generate(Parse(template), data, partials, helpers, @escape)
 
 Milk =
-  VERSION: '1.1.0'
+  VERSION: '1.1.1'
   render: -> Render.apply(exports ? Milk, arguments)
   helpers: []
   escape: (value) ->
