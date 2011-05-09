@@ -149,19 +149,20 @@
                   switch ((value || (value = [])).constructor) {
                     case Array:
                       return ((function() {
-                        var _i, _len, _results;
-                        _results = [];
-                        for (_i = 0, _len = value.length; _i < _len; _i++) {
-                          v = value[_i];
-                          _results.push(Build(tmpl, v, delims));
+                        var _j, _len2, _results2;
+                        _results2 = [];
+                        for (_j = 0, _len2 = value.length; _j < _len2; _j++) {
+                          v = value[_j];
+                          _results2.push(Build(tmpl, v, delims));
                         }
-                        return _results;
+                        return _results2;
                       })()).join('');
                     case Function:
                       return Build(value(tmpl), null, delims);
                     default:
                       return Build(tmpl, value, delims);
                   }
+                  break;
                 case '^':
                   delims = data[0], tmpl = data[1];
                   empty = (value || (value = [])) instanceof Array && value.length === 0;
@@ -170,6 +171,7 @@
                   } else {
                     return '';
                   }
+                  break;
                 case '&':
                 case '{':
                   if (value instanceof Function) {
@@ -194,7 +196,7 @@
   Find = function(name, stack) {
     var ctx, i, value, _ref, _ref2;
     value = '';
-    for (i = _ref = stack.length - 1, _ref2 = -1; (_ref <= _ref2 ? i < _ref2 : i > _ref2); (_ref <= _ref2 ? i += 1 : i -= 1)) {
+    for (i = _ref = stack.length - 1, _ref2 = -1; _ref <= _ref2 ? i < _ref2 : i > _ref2; _ref <= _ref2 ? i++ : i--) {
       if (!(name in (ctx = stack[i]))) {
         continue;
       }
@@ -214,8 +216,8 @@
       '<': 'lt',
       '>': 'gt'
     };
-    return value.replace(/[&"<>]/g, function(char) {
-      return "&" + entities[char] + ";";
+    return value.replace(/[&"<>]/g, function(character) {
+      return "&" + entities[character] + ";";
     });
   };
   Milk = {
@@ -226,7 +228,7 @@
       return Generate(Parse(template), data, partials);
     }
   };
-  if (typeof exports != "undefined" && exports !== null) {
+  if (typeof exports !== "undefined" && exports !== null) {
     for (key in Milk) {
       exports[key] = Milk[key];
     }
