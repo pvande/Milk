@@ -259,7 +259,7 @@ Find = (name, stack) ->
 # equivalents.
 Escape = (value) ->
   entities = { '&': 'amp', '"': 'quot', '<': 'lt', '>': 'gt' }
-  return value.replace(/[&"<>]/g, (char) -> "&#{ entities[char] };")
+  return value.replace(/[&"<>]/g, (character) -> "&#{ entities[character] };")
 
 #### Exports
 
