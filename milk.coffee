@@ -15,9 +15,13 @@ TemplateCache = {}
 Find = (name, stack, value = null) ->
   return stack[stack.length - 1] if name == '.'
   [name, parts...] = name.split(/\./)
+  [name, skips] = name.match(/^(.*?)('*)$/).slice(1)
+  skips = skips.split('')
+
   for i in [stack.length - 1...-1]
     continue unless stack[i]?
     continue unless typeof stack[i] == 'object' and name of (ctx = stack[i])
+    continue if skips.pop()
     value = ctx[name]
     break
 
