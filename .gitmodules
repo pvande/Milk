@@ -1,6 +1,6 @@
 [submodule "ext/spec"]
 	path = ext/spec
-	url = https://github.com/pvande/Mustache-Spec.git
+	url = https://github.com/mustache/spec.git
 [submodule "pages"]
 	path = pages
 	url = git@github.com:pvande/Milk.git

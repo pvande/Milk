@@ -68,7 +68,7 @@ task 'spec:node', 'Creates compliance tests for the Mustache spec in Vows', ->
     test = """
            vows  = require('vows');
            equal = require('assert').equal;
-           Milk  = require('milk');
+           Milk  = require('../');
            suite = vows.describe('Mustache Specification - #{file}');
 
            tests  = #{json}['tests'];
