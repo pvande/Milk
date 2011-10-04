@@ -10,6 +10,6 @@
   "main": "./milk",
   "scripts": { "test": "vows ./test/*" },
   "dependencies": { "coffee-script": "0.9.6 || >=1.0.0" },
-  "devDependencies": { "vows": "0.5.2", "docco": "0.3.0" },
+  "devDependencies": { "vows": "0.5.11", "docco": "0.3.0" },
   "repository": { "type": "git", "url": "https://github.com/pvande/Milk.git" }
 }
