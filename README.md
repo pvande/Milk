@@ -113,6 +113,19 @@ Milk itself is documented more completely at http://pvande.github.com/Milk
 
 The Mustache templating language is documented at http://mustache.github.com.
 
+Development
+-----------
+
+A few things to note:
+
+* This project uses submodules. To get them, run `git submodule init` and `git
+submodule update`.
+* To install the npm dependencies, run `npm install .`
+* There are a number of `cake` tasks, including ones that build the specs. To
+list the tasks, simply run `cake` in the project directory. To build the
+specs, run `cake spec:node` or `cake spec:html`.
+* To run the node.js tests, run `npm test`.
+
 Copyright
 ---------
 

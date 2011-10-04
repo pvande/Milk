@@ -1,7 +1,7 @@
 vows   = require 'vows'
 assert = require 'assert'
 
-Milk   = require 'milk'
+Milk   = require '../'
 
 suite = vows.describe 'Object Methods'
 
