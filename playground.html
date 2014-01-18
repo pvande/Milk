@@ -58,20 +58,21 @@
 
       tmpl.val tmpl.val() || '''
         <h1>{{header}}</h1>
+
         {{#list.length}}
-          <ul>
-          {{#list}}
-            {{#current}}
-              <li><strong>{{name}}</strong></li>
-            {{/current}}
-            {{^current}}
-              <li>a href="{{url}}">{{name}}</a></li>
-            {{/current}}
-          {{/list}}
-          </ul>
+        <ul>
+        {{#list}}
+        {{#current}}
+        <li><strong>{{name}}</strong></li>
+        {{/current}}
+        {{^current}}
+        <li>a href="{{url}}">{{name}}</a></li>
+        {{/current}}
+        {{/list}}
+        </ul>
         {{/list.length}}
         {{^list.length}}
-          <p>The list is empty.</p>
+        <p>The list is empty.</p>
         {{/list.length}}
       '''
 
@@ -83,8 +84,8 @@
           'tmpl=' + encodeURIComponent(tmpl.val())
 
         try
-          D = (data.val() || '{}').replace(/^/mg, ' ')
-          D = CoffeeScript.eval("return do ->\n#{D}")
+          D = data.val() || '{}'
+          D = CoffeeScript.eval D
           dataErr.hide()
         catch e
           dataErr.html("#{e}")
