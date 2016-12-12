@@ -43,6 +43,7 @@ h1 span {
   right: 0;
   padding: 5px;
   background-color: white;
+  width: 100%;
 }
 
 #data, #result { top: 3px; }
