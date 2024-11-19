@@ -48,12 +48,12 @@ h1 span {
 
 #data, #result { top: 3px; }
 
-.vsplitbar {
+.splitter-bar-vertical {
   width: 3px;
   background-color: #4A9CB2;
 }
 
-.hsplitbar {
+.splitter-bar-horizontal {
   height: 3px;
   background-color: #4A9CB2;
 }
