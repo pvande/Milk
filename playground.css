@@ -3,6 +3,7 @@ body {
   font-size: 9pt;
   background-color: white;
   margin: 0;
+  overflow: hidden;
 }
 :focus { outline: 0; }
 
